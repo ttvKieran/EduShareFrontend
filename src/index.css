@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+/* Toàn bộ giao diện */
+::-webkit-scrollbar {
+  width: 8px;              /* Chiều rộng thanh cuộn dọc */
+  height: 8px;             /* Chiều cao thanh cuộn ngang */
+}
+
+/* Nền thanh cuộn (track) */
+::-webkit-scrollbar-track {
+  background: white;     /* Màu nền nhẹ, gần trắng */
+  border-radius: 10px;
+}
+
+/* Thanh cuộn (thumb) */
+::-webkit-scrollbar-thumb {
+  background: white;     /* Màu chính của thanh cuộn */
+  border-radius: 10px;
+}
+
+/* Khi di chuột vào (hover) */
+::-webkit-scrollbar-thumb:hover {
+  background: #f0f0f0;     /* Đậm hơn chút khi hover */
+}
+

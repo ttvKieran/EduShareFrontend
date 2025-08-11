@@ -1,0 +1,22 @@
+/* Toàn bộ giao diện */
+::-webkit-scrollbar {
+  width: 8px;              /* Chiều rộng thanh cuộn dọc */
+  height: 8px;             /* Chiều cao thanh cuộn ngang */
+}
+
+/* Nền thanh cuộn (track) */
+::-webkit-scrollbar-track {
+  background: #f1f1f1;     /* Màu nền nhẹ, gần trắng */
+  border-radius: 10px;
+}
+
+/* Thanh cuộn (thumb) */
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;     /* Màu chính của thanh cuộn */
+  border-radius: 10px;
+}
+
+/* Khi di chuột vào (hover) */
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;     /* Đậm hơn chút khi hover */
+}
