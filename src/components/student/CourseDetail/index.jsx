@@ -38,7 +38,7 @@ import {
     Class as ClassIcon,
     Grade as GradeIcon
 } from '@mui/icons-material';
-import DocumentsList from '../../DocumentList';
+import DocumentsList from '../../shared/DocumentList';
 import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from "../../../configs/system";
 import { useAuth } from '../../../contexts/AuthContext';

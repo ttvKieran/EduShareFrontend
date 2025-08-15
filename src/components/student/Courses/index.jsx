@@ -38,7 +38,9 @@ import { toast } from "react-toastify";
 import { useNavigate } from 'react-router-dom';
 import transformData from '../../../helpers/transformData';
 import { useAuth } from '../../../contexts/AuthContext';
-const StudentCourseSelection = () => {
+
+const Courses = () => {
+  console.log("Hi");
   // const semesters = [
   //   {
   //     id: 1,
@@ -190,4 +192,4 @@ const StudentCourseSelection = () => {
   );
 };
 
-export default StudentCourseSelection;
+export default Courses;

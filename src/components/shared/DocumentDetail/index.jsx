@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import API_BASE_URL from '../../configs/system';
+import API_BASE_URL from '../../../configs/system';
 import {
   Box,
   Container,
@@ -75,9 +75,9 @@ import {
   Analytics
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
-import DocumentPreview from '../Test';
+import DocumentPreview from '../DocumentPreview';
 import CommentItem from '../CommentItem';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 
 export default function DocumentDetailPage() {

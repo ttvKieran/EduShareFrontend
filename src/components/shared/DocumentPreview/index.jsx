@@ -22,8 +22,8 @@ import {
   Description,
   Refresh
 } from '@mui/icons-material';
-import API_BASE_URL from "../../configs/system";
-import { useAuth } from '../../contexts/AuthContext';
+import API_BASE_URL from "../../../configs/system";
+import { useAuth } from '../../../contexts/AuthContext';
 
 const DocumentPreview = ({ doc, open, onClose }) => {
   const { authenticatedFetch } = useAuth();

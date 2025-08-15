@@ -1,6 +1,8 @@
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import theme from './theme';
+import theme from './themes/theme.js';
+import themeLecturer from './themes/themeLecturer.js';
+
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -8,20 +10,34 @@ import "react-toastify/dist/ReactToastify.css";
 // Existing imports...
 import Home from './components/student/Home/index.jsx';
 import Courses from './components/student/Courses';
-import Login from './components/Login/index.jsx';
-import AppLayout from './components/AppLayout/index.jsx';
-import NoMatch from './components/NoMatch/index.jsx';
-import ProtectedRoute from './components/ProtectedRoute/index.jsx';
+import Login from './components/shared/Login/index.jsx';
+import AppLayout from './components/shared/AppLayout/index.jsx';
+import NoMatch from './components/shared/NoMatch/index.jsx';
+import ProtectedRoute from './components/shared/ProtectedRoute/index.jsx';
 import CourseDetail from './components/student/CourseDetail';
-import DocumentDetail from './components/DocumentDetail/index.jsx';
-import Profile from './components/Profile';
+import DocumentDetail from './components/shared/DocumentDetail/index.jsx';
+import Profile from './components/shared/Profile';
 import Help from './components/student/Help';
-import DocumentsList from './components/DocumentList/index.jsx';
+import DocumentsList from './components/shared/DocumentList/index.jsx';
 import CourseNotificationsPage from './components/student/CourseNotification/index.jsx';
+
+// Lecturer
+import AppLayoutLecturer from './components/lecturer/AppLayout';
+import DashboardLecturer from './components/lecturer/Dashboard';
+import ClassesLecturer from './components/lecturer/Classes/index.jsx';
+import ScheduleLecturer from './components/lecturer/Schedule';
+import ClassDetailLecturer from './components/lecturer/ClassDetail/index.jsx';
+import CoursesLecturer from './components/lecturer/Courses';
+import CourseDetailLecturer from './components/lecturer/CourseDetail';
+import ProfileLecturer from './components/lecturer/Profile';
+
+// Admin
 
 // Add AuthProvider import
 import { AuthProvider } from './contexts/AuthContext';
 import { FavoriteProvider } from './contexts/FavoriteContext';
+import MyDocuments from './components/lecturer/MyDocuments/index.jsx';
+import DocumentUpload from './components/lecturer/DocumentUpload/index.jsx';
 
 function App() {
   return (
@@ -33,6 +49,26 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               
+              <Route
+                path="/lecturer"
+                element={
+                  <ProtectedRoute>
+                    <AppLayoutLecturer />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DashboardLecturer />} />
+                <Route path='classes' element={<ClassesLecturer />} />
+                <Route path='classes/:classId' element={<ClassDetailLecturer />}></Route>
+                <Route path='schedule' element={<ScheduleLecturer />} />
+                <Route path='documents' element={<MyDocuments />} />
+                <Route path='documents/upload' element={<DocumentUpload />} />
+                <Route path='courses' element={<CoursesLecturer />} />
+                <Route path='courses/:courseId' element={<CourseDetailLecturer />} />
+                <Route path='profile' element={<ProfileLecturer />} />
+                <Route path='notifications' element={<CourseNotificationsPage />} />
+              </Route>
+
               <Route
                 path="/"
                 element={

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import API_BASE_URL from "../../configs/system";
+import API_BASE_URL from "../../../configs/system";
 import {
   Card,
   CardContent,
@@ -40,10 +40,10 @@ import {
   DateRange,
   Storage
 } from '@mui/icons-material';
-import DocumentPreview from '../Test';
+import DocumentPreview from '../DocumentPreview';
 import { useNavigate } from 'react-router-dom';
-import {useFavorite} from '../../contexts/FavoriteContext';
-import { useAuth } from '../../contexts/AuthContext';
+import {useFavorite} from '../../../contexts/FavoriteContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const DocumentCard = ({ document }) => {
   const { authenticatedFetch } = useAuth();

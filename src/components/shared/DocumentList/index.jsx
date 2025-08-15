@@ -38,9 +38,9 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import DocumentCard from '../DocumentCard';
-import useDocuments from '../../helpers/fetchDocument';
+import useDocuments from '../../../helpers/fetchDocument';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import CustomBreadcrumbs from '../Breadcrumb';
+import CustomBreadcrumbs from '../../shared/Breadcrumb';
 // Tạo theme phù hợp với màu trắng và đỏ
 const theme = createTheme({
   palette: {
@@ -263,7 +263,7 @@ const DocumentsList = ({ typeSelect, typeName, nav, navHref, classId, courseId, 
           {/* Documents Grid */}
           <Grid container spacing={3}>
             {filteredAndSortedDocuments.map((document) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={document._id} lg={viewMode === 'grid' ? 4 : 12}
+              <Grid item xs={12} sm={6} md={4} key={document._id} lg={viewMode === 'grid' ? 4 : 12}
                 sx={{ width: `${viewMode === 'grid' ? '31.6%' : '100%'}` }}>
                 <DocumentCard document={document} />
               </Grid>
