@@ -45,11 +45,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import API_BASE_URL from "../../../configs/system";
 import { useAuth } from '../../../contexts/AuthContext';
 
-const CourseNotificationsPage = () => {
+const CourseNotificationsPage = ({courseId, classId}) => {
     const { authenticatedFetch } = useAuth();
     const navigate = useNavigate();
     const params = useParams();
-    const courseId = params.courseId;
+    // const courseId = params.courseId;
     const className = params.courseName;
 
     const [notifications, setNotifications] = useState([]);
@@ -101,9 +101,10 @@ const CourseNotificationsPage = () => {
     const fetchNotifications = async (page = 1, limit = 5) => {
                 try {
                     setLoading(true);
-                    let api = `${API_BASE_URL}/student/notifications`;
-                    if (courseId) api += `/${courseId}`;
-                    console.log(api);
+                    let api = `${API_BASE_URL}/lecturer/notifications`;
+                    if (courseId) api += `/course/${courseId}`;
+                    else if (classId) api += `/class/${classId}`;
+                    console.log("api: ", api);
                     const response = await authenticatedFetch(
                         `${api}?page=${page}&limit=${limit}`
                     );
@@ -336,12 +337,12 @@ const CourseNotificationsPage = () => {
                                     fontWeight: 600
                                 }}
                             >
-                                {notification.author?.name?.charAt(0).toUpperCase() ||
+                                {notification.author?.authorId?.fullName.charAt(0).toUpperCase() ||
                                     notification.authorName?.charAt(0).toUpperCase() || 'G'}
                             </Avatar>
                             <Box>
                                 <Typography variant="body2" sx={{ fontWeight: 500, color: '#333' }}>
-                                    {notification.author?.name || notification.authorName || 'Giảng viên'}
+                                    {notification.author?.authorId.fullName || notification.authorName || 'Giảng viên'}
                                 </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
                                     <AccessTimeIcon sx={{ fontSize: 12, mr: 0.5, color: '#666' }} />
@@ -473,12 +474,12 @@ const CourseNotificationsPage = () => {
                                 fontWeight: 600
                             }}
                         >
-                            {selectedNotification.author?.name?.charAt(0).toUpperCase() ||
+                            {selectedNotification.author?.authorId.fullName?.charAt(0).toUpperCase() ||
                                 selectedNotification.authorName?.charAt(0).toUpperCase() || 'G'}
                         </Avatar>
                         <Box>
                             <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
-                                {selectedNotification.author?.name || selectedNotification.authorName || 'Giảng viên'}
+                                {selectedNotification.author?.authorId.fullName || selectedNotification.authorName || 'Giảng viên'}
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <AccessTimeIcon sx={{ fontSize: 16, mr: 0.5, color: '#666' }} />
@@ -543,7 +544,7 @@ const CourseNotificationsPage = () => {
     return (
         <Container sx={{  }}>
             {/* Header Section */}
-            {courseId &&
+            {/* {courseId &&
                 <Paper
                     elevation={3}
                     sx={{
@@ -587,7 +588,7 @@ const CourseNotificationsPage = () => {
                         </Button>
                     </Box>
                 </Paper>
-            }
+            } */}
 
             {/* Content Section */}
             <Box>

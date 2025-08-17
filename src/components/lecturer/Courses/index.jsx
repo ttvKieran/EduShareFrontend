@@ -356,7 +356,7 @@ const Courses = () => {
     if (loading) {
         return (
             <Box sx={{ p: 3 }}>
-                <Typography variant="h4" sx={{ mb: 3 }}>Đang tải...</Typography>
+                {/* <Typography variant="h4" sx={{ mb: 3 }}>Đang tải...</Typography> */}
                 <LinearProgress />
             </Box>
         );
@@ -365,13 +365,13 @@ const Courses = () => {
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
-            <Box sx={{ mb: 4 }}>
+            <Box sx={{ mb: 2 }}>
                 <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
                     Môn học giảng dạy
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
+                {/* <Typography variant="body1" color="text.secondary">
                     Quản lý các môn học mà bạn đang giảng dạy
-                </Typography>
+                </Typography> */}
             </Box>
 
             {/* Statistics Cards */}
@@ -493,14 +493,14 @@ const Courses = () => {
                                 >
                                     Bộ lọc
                                 </Button>
-                                <Button
+                                {/* <Button
                                     variant="contained"
                                     startIcon={<AddIcon />}
                                     size="small"
                                     onClick={() => setCreateDialogOpen(true)}
                                 >
                                     Tạo môn học
-                                </Button>
+                                </Button> */}
                             </Box>
                         </Grid>
                     </Grid>

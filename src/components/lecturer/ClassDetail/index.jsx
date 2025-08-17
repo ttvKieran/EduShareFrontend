@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Grid,
@@ -135,26 +135,28 @@ import {
   Refresh as RefreshIcon,
   Bolt as BoltIcon
 } from '@mui/icons-material';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import DocumentList from '../DocumentList';
 import DocumentPreview from '../DocumentPreview';
 import Notifications from '../ClassNotification';
+import API_BASE_URL from '../../../configs/system';
+
+import { Editor } from '@tinymce/tinymce-react';
 
 const CourseDetail = () => {
-  const { user } = useAuth();
+  const { authenticatedFetch } = useAuth();
   const navigate = useNavigate();
-  const { courseId } = useParams();
+  const { classId } = useParams();
+  const courseId = classId;
 
   // States
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [announcements, setAnnouncements] = useState([]);
-  const [assignments, setAssignments] = useState([]);
   const [documents, setDocuments] = useState([]);
-  const [discussions, setDiscussions] = useState([]);
-  const [grades, setGrades] = useState([]);
   const [students, setStudents] = useState([]);
   const [activities, setActivities] = useState([]);
 
@@ -172,225 +174,70 @@ const CourseDetail = () => {
     sendEmail: true
   });
 
-  // Mock data
-  const mockCourse = {
-    id: parseInt(courseId),
-    name: 'Lập trình hướng đối tượng',
-    code: 'IT3103',
-    description: 'Môn học giới thiệu các khái niệm cơ bản về lập trình hướng đối tượng sử dụng ngôn ngữ Java. Sinh viên sẽ học về class, object, inheritance, polymorphism, encapsulation và abstraction.',
-    semester: '2024.1',
-    semesterName: 'Học kỳ I năm 2024-2025',
-    credits: 3,
-    maxStudents: 50,
-    enrolledStudents: 42,
-    status: 'active',
-    progress: 65,
-    assignments: 8,
-    documents: 15,
-    discussions: 12,
-    announcements: 5,
-    lastUpdated: '2024-08-10T10:30:00Z',
-    schedule: [
-      { day: 'Thứ 2', time: '08:00-09:30', room: 'Lab A2', type: 'Lý thuyết' },
-      { day: 'Thứ 4', time: '08:00-09:30', room: 'Lab A2', type: 'Thực hành' }
-    ],
-    avgGrade: 7.8,
-    completedLessons: 13,
-    totalLessons: 20,
-    nextClass: '2024-08-15T08:00:00Z',
-    instructor: {
-      id: 1,
-      name: 'TS. Nguyễn Văn Minh',
-      email: 'nvminh@university.edu.vn',
-      avatar: '/api/placeholder/50/50'
-    },
-    syllabus: {
-      objectives: [
-        'Hiểu được các khái niệm cơ bản về OOP',
-        'Thành thạo lập trình Java cơ bản',
-        'Áp dụng được các design pattern cơ bản',
-        'Phát triển được ứng dụng Java đơn giản'
-      ],
-      topics: [
-        'Giới thiệu về Java và OOP',
-        'Class và Object',
-        'Inheritance và Polymorphism',
-        'Interface và Abstract Class',
-        'Exception Handling',
-        'Collections Framework',
-        'File I/O',
-        'GUI với Swing'
-      ]
+  // Fetch course data
+  const fetchCourseData = async () => {
+    try {
+      setLoading(true);
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/classes/`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const foundCourse = data.data.find(c => c._id === courseId);
+        
+        if (foundCourse) {
+          setCourse(foundCourse);
+          setStudents(foundCourse.studentIds || []);
+        } else {
+          console.error('Course not found');
+        }
+      } else {
+        console.error('Failed to fetch courses');
+      }
+    } catch (error) {
+      console.error('Error fetching course data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const mockAnnouncements = [
-    {
-      id: 1,
-      title: 'Thông báo về bài tập lớn cuối kỳ',
-      content: 'Các em chuẩn bị bài tập lớn theo nhóm 3-4 người. Đề tài sẽ được công bố vào tuần tới.',
-      priority: 'high',
-      createdAt: '2024-08-10T10:30:00Z',
-      updatedAt: '2024-08-10T10:30:00Z',
-      pinned: true,
-      views: 38,
-      comments: 5
-    },
-    {
-      id: 2,
-      title: 'Thay đổi lịch học tuần sau',
-      content: 'Do giảng viên có công tác, buổi học thứ 4 sẽ chuyển sang thứ 6 cùng giờ.',
-      priority: 'normal',
-      createdAt: '2024-08-08T14:20:00Z',
-      updatedAt: '2024-08-08T14:20:00Z',
-      pinned: false,
-      views: 42,
-      comments: 2
+  // Fetch announcements
+  const fetchAnnouncements = async () => {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/notifications/class/${courseId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAnnouncements(data.data || []);
+      } else {
+        console.error('Failed to fetch announcements');
+      }
+    } catch (error) {
+      console.error('Error fetching announcements:', error);
     }
-  ];
+  };
 
-  const mockAssignments = [
-    {
-      id: 1,
-      title: 'Bài tập 1: Class và Object',
-      description: 'Viết chương trình quản lý sinh viên sử dụng class và object',
-      dueDate: '2024-08-20T23:59:00Z',
-      type: 'homework',
-      status: 'published',
-      maxScore: 10,
-      submissions: 35,
-      graded: 28,
-      avgScore: 8.2,
-      createdAt: '2024-08-05T09:00:00Z'
-    },
-    {
-      id: 2,
-      title: 'Lab 2: Inheritance',
-      description: 'Thực hành về kế thừa trong Java',
-      dueDate: '2024-08-25T23:59:00Z',
-      type: 'lab',
-      status: 'published',
-      maxScore: 15,
-      submissions: 30,
-      graded: 15,
-      avgScore: 7.8,
-      createdAt: '2024-08-08T10:00:00Z'
-    },
-    {
-      id: 3,
-      title: 'Quiz 1: OOP Concepts',
-      description: 'Kiểm tra nhanh về các khái niệm OOP cơ bản',
-      dueDate: '2024-08-18T15:30:00Z',
-      type: 'quiz',
-      status: 'draft',
-      maxScore: 5,
-      submissions: 0,
-      graded: 0,
-      avgScore: 0,
-      createdAt: '2024-08-12T11:00:00Z'
+  // Fetch documents
+  const fetchDocuments = async () => {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/documents/class/${courseId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDocuments(data.data || []);
+      } else {
+        console.error('Failed to fetch documents');
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error);
     }
-  ];
-
-  const mockDocuments = [
-    {
-      id: 1,
-      name: 'Slide Bài 1 - Giới thiệu Java',
-      type: 'presentation',
-      size: '2.5 MB',
-      downloadCount: 42,
-      uploadedAt: '2024-08-01T09:00:00Z',
-      category: 'lecture'
-    },
-    {
-      id: 2,
-      name: 'Hướng dẫn cài đặt Eclipse IDE',
-      type: 'document',
-      size: '1.8 MB',
-      downloadCount: 38,
-      uploadedAt: '2024-08-01T10:30:00Z',
-      category: 'guide'
-    },
-    {
-      id: 3,
-      name: 'Video bài giảng - OOP Concepts',
-      type: 'video',
-      size: '125 MB',
-      downloadCount: 25,
-      uploadedAt: '2024-08-05T14:00:00Z',
-      category: 'lecture'
-    }
-  ];
-
-  const mockDiscussions = [
-    {
-      id: 1,
-      title: 'Thắc mắc về Inheritance',
-      content: 'Em chưa hiểu rõ về super keyword, thầy có thể giải thích thêm không ạ?',
-      author: {
-        name: 'Nguyễn Văn A',
-        avatar: '/api/placeholder/30/30',
-        role: 'student'
-      },
-      replies: 3,
-      views: 15,
-      createdAt: '2024-08-10T16:20:00Z',
-      lastReply: '2024-08-10T18:30:00Z',
-      tags: ['inheritance', 'java'],
-      solved: false
-    },
-    {
-      id: 2,
-      title: 'Lỗi khi compile code Java',
-      content: 'Code em bị lỗi "cannot find symbol", em không biết sửa như thế nào',
-      author: {
-        name: 'Trần Thị B',
-        avatar: '/api/placeholder/30/30',
-        role: 'student'
-      },
-      replies: 2,
-      views: 12,
-      createdAt: '2024-08-09T14:15:00Z',
-      lastReply: '2024-08-09T15:45:00Z',
-      tags: ['debug', 'compile-error'],
-      solved: true
-    }
-  ];
-
-  const mockActivities = [
-    {
-      id: 1,
-      type: 'assignment_submitted',
-      content: 'Nguyễn Văn A đã nộp bài tập "Class và Object"',
-      timestamp: '2024-08-12T14:30:00Z',
-      user: { name: 'Nguyễn Văn A', avatar: '/api/placeholder/30/30' }
-    },
-    {
-      id: 2,
-      type: 'document_uploaded',
-      content: 'Giảng viên đã tải lên tài liệu "Slide Bài 2"',
-      timestamp: '2024-08-12T10:15:00Z',
-      user: { name: 'TS. Nguyễn Văn Minh', avatar: '/api/placeholder/30/30' }
-    },
-    {
-      id: 3,
-      type: 'discussion_created',
-      content: 'Trần Thị B đã tạo thảo luận mới "Thắc mắc về Interface"',
-      timestamp: '2024-08-11T16:45:00Z',
-      user: { name: 'Trần Thị B', avatar: '/api/placeholder/30/30' }
-    }
-  ];
+  };
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setCourse(mockCourse);
-      setAnnouncements(mockAnnouncements);
-      setAssignments(mockAssignments);
-      setDocuments(mockDocuments);
-      setDiscussions(mockDiscussions);
-      setActivities(mockActivities);
-      setLoading(false);
-    }, 1000);
+    if (courseId) {
+      fetchCourseData();
+      fetchAnnouncements();
+      fetchDocuments();
+    }
   }, [courseId]);
 
   // Helper functions
@@ -416,29 +263,24 @@ const CourseDetail = () => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'high': return 'error';
-      case 'normal': return 'primary';
-      case 'low': return 'default';
+      case 'cao': return 'error';
+      case 'thường': return 'primary';
+      case 'thấp': return 'default';
       default: return 'default';
     }
   };
 
-  const getAssignmentTypeIcon = (type) => {
-    switch (type) {
-      case 'homework': return <AssignmentIcon />;
-      case 'lab': return <SchoolIcon />;
-      case 'quiz': return <QuizIcon />;
-      default: return <AssignmentIcon />;
-    }
-  };
-
-  const getDocumentIcon = (type) => {
-    switch (type) {
-      case 'presentation': return <FileIcon />;
-      case 'document': return <FileIcon />;
-      case 'video': return <VideoIcon />;
-      default: return <FileIcon />;
-    }
+  const getDayOfWeekText = (dayOfWeek) => {
+    const days = {
+      1: 'Chủ nhật',
+      2: 'Thứ 2',
+      3: 'Thứ 3',
+      4: 'Thứ 4',
+      5: 'Thứ 5',
+      6: 'Thứ 6',
+      7: 'Thứ 7'
+    };
+    return days[dayOfWeek] || 'Không xác định';
   };
 
   const formatDate = (dateString) => {
@@ -451,8 +293,12 @@ const CourseDetail = () => {
     });
   };
 
-  const formatFileSize = (size) => {
-    return size;
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   // Event handlers
@@ -460,6 +306,8 @@ const CourseDetail = () => {
     console.log('Creating announcement:', announcementForm);
     setCreateAnnouncementOpen(false);
     setAnnouncementForm({ title: '', content: '', priority: 'normal', sendEmail: true });
+    // Refresh announcements after creating
+    fetchAnnouncements();
   };
 
   // Tab Panel Component
@@ -471,622 +319,240 @@ const CourseDetail = () => {
 
   // Course Overview Component
   const CourseOverview = () => (
-    // <Card>
-      <Grid container spacing={3} sx={{display: 'flex', justifyContent: 'start'}}>
-        {/* Course Stats */}
-        <Grid item sx={{ width: '100%' }}>
-          <Card sx={{border: 0}}>
-            <CardContent sx={{border: 0}}>
-              <List dense>
-                <ListItem>
-                  <ListItemText
-                    primary="Mã môn học"
-                    secondary={course.code}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Số tín chỉ"
-                    secondary={`${course.credits} tín chỉ`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Học kỳ"
-                    secondary={course.semesterName}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Sĩ số"
-                    secondary={`${course.enrolledStudents}/${course.maxStudents} sinh viên`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Trạng thái"
-                    secondary={
-                      <Chip
-                        label={getStatusLabel(course.status)}
-                        color={getStatusColor(course.status)}
-                        size="small"
-                      />
-                    }
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={4} sx={{width: '76%'}}>
-          {/* Schedule */}
-          <Card sx={{border: 0}}>
-            <CardContent sx={{border: 0}}>
-              <List>
-                {course.schedule.map((schedule, index) => (
-                  <ListItem key={index} divider={index < course.schedule.length - 1}>
-                    <ListItemIcon>
-                      <ScheduleIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={`${schedule.day}: ${schedule.time}`}
-                      secondary={`${schedule.room} - ${schedule.type}`}
+    <Grid container spacing={3} sx={{ display: 'flex', justifyContent: 'start' }}>
+      {/* Course Stats */}
+      <Grid item sx={{ width: '100%' }}>
+        <Card sx={{ border: 0 }}>
+          <CardContent sx={{ border: 0 }}>
+            <List dense>
+              <ListItem>
+                <ListItemText
+                  primary="Mã môn học"
+                  secondary={course.courseId?.code || 'N/A'}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Số tín chỉ"
+                  secondary={`${course.courseId?.credits || 0} tín chỉ`}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Học kỳ"
+                  secondary={`Học kỳ ${course.semester} năm ${course.academicYear}`}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Sĩ số"
+                  secondary={`${course.studentIds?.length || 0}/${course.courseId?.maxStudents || 0} sinh viên`}
+                />
+              </ListItem>
+              <ListItem>
+                <ListItemText
+                  primary="Trạng thái"
+                  secondary={
+                    <Chip
+                      label={getStatusLabel(course.status)}
+                      color={getStatusColor(course.status)}
+                      size="small"
                     />
-                  </ListItem>
-                ))}
-              </List>
-              {course.nextClass && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <strong>Buổi học tiếp theo:</strong> {formatDate(course.nextClass)}
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={4} sx={{border: 0, height: '24%'}}>
-          {/* Quick Actions */}
-          <Card sx={{border: 0}}>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 0 }}>
-                <BoltIcon sx={{ mr: 1 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Thao tác nhanh
-                </Typography>
-              </Box>
-              <Stack spacing={1}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<AnnouncementIcon />}
-                  onClick={() => setCreateAnnouncementOpen(true)}
-                >
-                  Tạo thông báo
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<AssignmentIcon />}
-                  onClick={() => setCreateAssignmentOpen(true)}
-                >
-                  Tạo bài tập
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<UploadIcon />}
-                  onClick={() => setUploadDocumentOpen(true)}
-                >
-                  Tải tài liệu
-                </Button>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<PeopleIcon />}
-                  onClick={() => setTabValue(4)}
-                >
-                  Quản lý sinh viên
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+                  }
+                />
+              </ListItem>
+            </List>
+          </CardContent>
+        </Card>
       </Grid>
-    // </Card>
 
+      <Grid item xs={4} sx={{ width: '76%' }}>
+        {/* Schedule */}
+        <Card sx={{ border: 0 }}>
+          <CardContent sx={{ border: 0 }}>
+            <List>
+              {course.schedule?.map((schedule, index) => (
+                <ListItem key={index} divider={index < course.schedule.length - 1}>
+                  <ListItemIcon>
+                    <ScheduleIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={`${getDayOfWeekText(schedule.dayOfWeek)}: ${schedule.timeStart}-${schedule.timeEnd}`}
+                    secondary={`${schedule.classroom}`}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      </Grid>
+
+      <Grid item xs={4} sx={{ border: 0, height: '24%' }}>
+        {/* Quick Actions */}
+        <Card sx={{ border: 0 }}>
+          <CardContent>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 0 }}>
+              <BoltIcon sx={{ mr: 1 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Thao tác nhanh
+              </Typography>
+            </Box>
+            <Stack spacing={1}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<AnnouncementIcon />}
+                onClick={() => setCreateAnnouncementOpen(true)}
+              >
+                Tạo thông báo
+              </Button>
+              {/* <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<AssignmentIcon />}
+                onClick={() => setCreateAssignmentOpen(true)}
+              >
+                Tạo bài tập
+              </Button> */}
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<UploadIcon />}
+                onClick={() => setUploadDocumentOpen(true)}
+              >
+                Tải tài liệu
+              </Button>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<PeopleIcon />}
+                onClick={() => setTabValue(3)}
+              >
+                Quản lý sinh viên
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
   );
 
   // Announcements Component
   const AnnouncementsTab = () => (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-          <NotificationsIcon sx={{ mr: 1 }} />
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Thông báo
-          </Typography>
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+              <NotificationsIcon sx={{ mr: 1 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                Thông báo
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateAnnouncementOpen(true)}
+            >
+              Tạo thông báo
+            </Button>
+          </Box>
+          <Notifications classId={courseId}/>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateAnnouncementOpen(true)}
-        >
-          Tạo thông báo
-        </Button>
-      </Box>
+      );
 
-      {/* <Stack spacing={2}>
-        {announcements.map((announcement) => (
-          <Card key={announcement.id}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {announcement.title}
-                    </Typography>
-                    {announcement.pinned && (
-                      <Chip label="Ghim" size="small" color="secondary" />
-                    )}
-                    <Chip
-                      label={announcement.priority.toUpperCase()}
-                      size="small"
-                      color={getPriorityColor(announcement.priority)}
-                    />
-                  </Box>
-                  <Typography variant="body1" sx={{ mb: 2 }}>
-                    {announcement.content}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDate(announcement.createdAt)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      👁 {announcement.views} lượt xem
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      💬 {announcement.comments} bình luận
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton size="small">
-                  <MoreVertIcon />
-                </IconButton>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack> */}
-      <Notifications />
-    </Box>
-  );
+  // Documents Component
+  const DocumentsTab = () => {
+    // Transform API data to match DocumentList component format
+    const transformedDocuments = documents.map(doc => ({
+      _id: doc._id,
+      title: doc.title,
+      description: doc.description,
+      type: doc.type,
+      mimeType: doc.mimeType,
+      fileType: doc.fileType,
+      fileSize: doc.fileSize,
+      viewCount: doc.viewCount,
+      downloadCount: doc.downloadCount,
+      authors: doc.authors,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+      category: doc.type,
+      isPublished: doc.status === 'active',
+      tags: doc.tags || [],
+      downloadUrl: doc.downloadUrl,
+      previewUrl: doc.previewUrl
+    }));
 
-  // Assignments Component
-  // const AssignmentsTab = () => (
-  //   <Box>
-  //     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-  //       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-  //         <AssignmentIcon sx={{ mr: 1 }} />
-  //         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-  //           Bài tập & Kiểm tra
-  //         </Typography>
-  //       </Box>
-  //       <Button
-  //         variant="contained"
-  //         startIcon={<AddIcon />}
-  //         onClick={() => setCreateAssignmentOpen(true)}
-  //       >
-  //         Tạo bài tập
-  //       </Button>
-  //     </Box>
+    const handleDocumentPreview = (document) => {
+      console.log('Preview document:', document);
+      if (document.previewUrl) {
+        window.open(document.previewUrl, '_blank');
+      }
+    };
 
-  //     <Grid container spacing={3}>
-  //       {assignments.map((assignment) => (
-  //         <Grid item xs={12} md={6} lg={4} key={assignment.id}>
-  //           <Card>
-  //             <CardContent>
-  //               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-  //                 {getAssignmentTypeIcon(assignment.type)}
-  //                 <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
-  //                   {assignment.title}
-  //                 </Typography>
-  //                 <Chip
-  //                   label={assignment.status}
-  //                   size="small"
-  //                   color={assignment.status === 'published' ? 'success' : 'default'}
-  //                 />
-  //               </Box>
+    const handleDocumentDownload = (document) => {
+      console.log('Download document:', document);
+      if (document.downloadUrl) {
+        window.open(document.downloadUrl, '_blank');
+      }
+    };
 
-  //               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-  //                 {assignment.description}
-  //               </Typography>
+    const handleDocumentEdit = (document) => {
+      console.log('Edit document:', document);
+    };
 
-  //               <Box sx={{ mb: 2 }}>
-  //                 <Typography variant="caption" color="text.secondary">
-  //                   Hạn nộp: {formatDate(assignment.dueDate)}
-  //                 </Typography>
-  //               </Box>
+    const handleDocumentDelete = (document) => {
+      console.log('Delete document:', document);
+    };
 
-  //               <Grid container spacing={2} sx={{ mb: 2 }}>
-  //                 <Grid item xs={6}>
-  //                   <Typography variant="caption" color="text.secondary">
-  //                     Đã nộp: {assignment.submissions}/{course.enrolledStudents}
-  //                   </Typography>
-  //                   <LinearProgress
-  //                     variant="determinate"
-  //                     value={(assignment.submissions / course.enrolledStudents) * 100}
-  //                     size="small"
-  //                   />
-  //                 </Grid>
-  //                 <Grid item xs={6}>
-  //                   <Typography variant="caption" color="text.secondary">
-  //                     Đã chấm: {assignment.graded}/{assignment.submissions}
-  //                   </Typography>
-  //                   <LinearProgress
-  //                     variant="determinate"
-  //                     value={assignment.submissions > 0 ? (assignment.graded / assignment.submissions) * 100 : 0}
-  //                     color="secondary"
-  //                     size="small"
-  //                   />
-  //                 </Grid>
-  //               </Grid>
+    const handleDocumentTogglePublish = (document) => {
+      console.log('Toggle publish:', document);
+    };
 
-  //               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-  //                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-  //                   Điểm TB: {assignment.avgScore || '--'}/{assignment.maxScore}
-  //                 </Typography>
-  //                 <Box>
-  //                   <IconButton size="small" color="primary">
-  //                     <EditIcon />
-  //                   </IconButton>
-  //                   <IconButton size="small" color="primary">
-  //                     <VisibilityIcon />
-  //                   </IconButton>
-  //                 </Box>
-  //               </Box>
-  //             </CardContent>
-  //           </Card>
-  //         </Grid>
-  //       ))}
-  //     </Grid>
-  //   </Box>
-  // );
+    const handleDocumentUpload = () => {
+      setUploadDocumentOpen(true);
+    };
 
-  // Documents Component - Updated to match student DocumentCard style
-  const mockDocumentsDetailed = [
-    {
-      _id: '1',
-      title: 'Slide Bài 1 - Giới thiệu Java và OOP',
-      description: 'Tài liệu giới thiệu về ngôn ngữ lập trình Java và các khái niệm cơ bản về lập trình hướng đối tượng',
-      type: 'lecture',
-      mimeType: 'application/pdf',
-      fileType: 'pdf',
-      fileSize: 2621440,
-      viewCount: 42,
-      downloadCount: 35,
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: '2024-08-01T09:00:00Z',
-      updatedAt: '2024-08-01T09:00:00Z',
-      category: 'lecture',
-      isPublished: true,
-      tags: ['java', 'oop', 'introduction']
-    },
-    {
-      _id: '2',
-      title: 'Hướng dẫn cài đặt Eclipse IDE',
-      description: 'Tài liệu hướng dẫn chi tiết cách cài đặt và cấu hình Eclipse IDE cho lập trình Java',
-      type: 'reference',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      fileType: 'docx',
-      fileSize: 1887436,
-      viewCount: 38,
-      downloadCount: 32,
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: '2024-08-01T10:30:00Z',
-      updatedAt: '2024-08-01T10:30:00Z',
-      category: 'guide',
-      isPublished: true,
-      tags: ['eclipse', 'ide', 'setup']
-    },
-    {
-      _id: '3',
-      title: 'Video bài giảng - OOP Concepts',
-      description: 'Video bài giảng chi tiết về các khái niệm cơ bản trong lập trình hướng đối tượng',
-      type: 'lecture',
-      mimeType: 'video/mp4',
-      fileType: 'mp4',
-      fileSize: 131072000,
-      viewCount: 25,
-      downloadCount: 15,
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: '2024-08-05T14:00:00Z',
-      updatedAt: '2024-08-05T14:00:00Z',
-      category: 'lecture',
-      isPublished: true,
-      tags: ['video', 'oop', 'concepts']
-    },
-    {
-      _id: '4',
-      title: 'Bài tập thực hành Inheritance',
-      description: 'Bộ bài tập thực hành về kế thừa trong Java với các ví dụ cụ thể',
-      type: 'exercise',
-      mimeType: 'application/pdf',
-      fileType: 'pdf',
-      fileSize: 1048576,
-      viewCount: 30,
-      downloadCount: 28,
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: '2024-08-08T11:00:00Z',
-      updatedAt: '2024-08-08T11:00:00Z',
-      category: 'exercise',
-      isPublished: false,
-      tags: ['inheritance', 'practice', 'java']
-    },
-    {
-      _id: '5',
-      title: 'Đề thi giữa kỳ 2023',
-      description: 'Đề thi giữa kỳ môn Lập trình hướng đối tượng năm 2023 để tham khảo',
-      type: 'exam',
-      mimeType: 'application/pdf',
-      fileType: 'pdf',
-      fileSize: 524288,
-      viewCount: 15,
-      downloadCount: 12,
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: '2024-08-10T16:00:00Z',
-      updatedAt: '2024-08-10T16:00:00Z',
-      category: 'exam',
-      isPublished: true,
-      tags: ['exam', 'midterm', 'reference']
-    },
-    // Add more mock documents to test pagination
-    ...Array.from({ length: 15 }, (_, index) => ({
-      _id: `${index + 6}`,
-      title: `Tài liệu mẫu ${index + 1}`,
-      description: `Mô tả cho tài liệu mẫu số ${index + 1}`,
-      type: ['lecture', 'exercise', 'reference', 'exam'][index % 4],
-      mimeType: 'application/pdf',
-      fileType: 'pdf',
-      fileSize: Math.floor(Math.random() * 10000000) + 500000,
-      viewCount: Math.floor(Math.random() * 100),
-      downloadCount: Math.floor(Math.random() * 50),
-      authors: [{ name: 'TS. Nguyễn Văn Minh' }],
-      createdAt: new Date(2024, 7, Math.floor(Math.random() * 30) + 1).toISOString(),
-      updatedAt: new Date(2024, 7, Math.floor(Math.random() * 30) + 1).toISOString(),
-      category: 'lecture',
-      isPublished: Math.random() > 0.3,
-      tags: ['tag1', 'tag2', 'tag3']
-    }))
-  ];
-
-  // Event handlers for documents
-  const handleDocumentPreview = (document) => {
-    console.log('Preview document:', document);
+    return (
+      <DocumentList
+        documents={transformedDocuments}
+        title="Tài liệu học tập"
+        icon={MenuBookIcon}
+        onPreview={handleDocumentPreview}
+        onDownload={handleDocumentDownload}
+        onEdit={handleDocumentEdit}
+        onDelete={handleDocumentDelete}
+        onTogglePublish={handleDocumentTogglePublish}
+        onUpload={handleDocumentUpload}
+        searchPlaceholder="Tìm kiếm tài liệu trong môn học..."
+        emptyStateMessage="Chưa có tài liệu nào trong môn học này"
+        emptyStateDescription="Hãy tải lên tài liệu đầu tiên cho môn học này"
+      />
+    );
   };
-
-  const handleDocumentDownload = (document) => {
-    console.log('Download document:', document);
-  };
-
-  const handleDocumentEdit = (document) => {
-    console.log('Edit document:', document);
-  };
-
-  const handleDocumentDelete = (document) => {
-    console.log('Delete document:', document);
-    // Implement delete logic here
-  };
-
-  const handleDocumentTogglePublish = (document) => {
-    console.log('Toggle publish:', document);
-    // Implement publish/unpublish logic here
-  };
-
-  const handleDocumentUpload = () => {
-    setUploadDocumentOpen(true);
-  };
-  const DocumentsTab = () => (
-    <DocumentList
-      documents={mockDocumentsDetailed}
-      title="Tài liệu học tập"
-      icon={MenuBookIcon}
-      onPreview={handleDocumentPreview}
-      onDownload={handleDocumentDownload}
-      onEdit={handleDocumentEdit}
-      onDelete={handleDocumentDelete}
-      onTogglePublish={handleDocumentTogglePublish}
-      onUpload={handleDocumentUpload}
-      searchPlaceholder="Tìm kiếm tài liệu trong môn học..."
-      emptyStateMessage="Chưa có tài liệu nào trong môn học này"
-      emptyStateDescription="Hãy tải lên tài liệu đầu tiên cho môn học này"
-    />
-  );
-
-  // Discussions Component
-  const DiscussionsTab = () => (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-          <ForumIcon sx={{ mr: 1 }} />
-          <Typography variant="body1">Thảo luận</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />}>
-          Tạo thảo luận
-        </Button>
-      </Box>
-
-      <Stack spacing={2}>
-        {discussions.map((discussion) => (
-          <Card key={discussion.id}>
-            <CardContent>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Avatar src={discussion.author.avatar}>
-                  {discussion.author.name.charAt(0)}
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {discussion.title}
-                    </Typography>
-                    {discussion.solved && (
-                      <Chip label="Đã giải quyết" size="small" color="success" />
-                    )}
-                  </Box>
-
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    {discussion.content}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                    {discussion.tags.map((tag) => (
-                      <Chip key={tag} label={tag} size="small" variant="outlined" />
-                    ))}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      bởi {discussion.author.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {formatDate(discussion.createdAt)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      💬 {discussion.replies} trả lời
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      👁 {discussion.views} lượt xem
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
-      </Stack>
-    </Box>
-  );
 
   // Students Component
-  // ...existing code...
-
-  // Students Component - Updated to display in tab instead of dialog
   const StudentsTab = () => {
     // States for students management
-    const [students, setStudents] = useState([]);
     const [studentsLoading, setStudentsLoading] = useState(false);
     const [studentSearchQuery, setStudentSearchQuery] = useState('');
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [selectedStudents, setSelectedStudents] = useState([]);
 
-    // Mock students data
-    const mockStudents = [
-      {
-        id: 1,
-        studentCode: 'B22DCCN001',
-        fullName: 'Nguyễn Văn An',
-        email: 'an.nv@university.edu.vn',
-        birthDate: '15/03/2004',
-        className: 'D22CNPM03',
-        averageGrade: 8.5,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 2,
-        studentCode: 'B22DCCN002',
-        fullName: 'Trần Thị Bình',
-        email: 'binh.tt@university.edu.vn',
-        birthDate: '22/07/2004',
-        className: 'D22CNPM03',
-        averageGrade: 9.0,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 3,
-        studentCode: 'B22DCCN003',
-        fullName: 'Lê Minh Cường',
-        email: 'cuong.lm@university.edu.vn',
-        birthDate: '10/11/2004',
-        className: 'D22CNPM01',
-        averageGrade: 7.8,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 4,
-        studentCode: 'B22DCCN004',
-        fullName: 'Phạm Thu Dung',
-        email: 'dung.pt@university.edu.vn',
-        birthDate: '28/09/2004',
-        className: 'D22CNPM02',
-        averageGrade: 8.2,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 5,
-        studentCode: 'B22DCCN005',
-        fullName: 'Hoàng Văn Em',
-        email: 'em.hv@university.edu.vn',
-        birthDate: '05/12/2004',
-        className: 'D22CNPM03',
-        averageGrade: 7.5,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 6,
-        studentCode: 'B22DCCN006',
-        fullName: 'Đỗ Thị Hoa',
-        email: 'hoa.dt@university.edu.vn',
-        birthDate: '18/02/2004',
-        className: 'D22CNPM01',
-        averageGrade: 8.8,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 7,
-        studentCode: 'B22DCCN007',
-        fullName: 'Vũ Minh Khang',
-        email: 'khang.vm@university.edu.vn',
-        birthDate: '14/06/2004',
-        className: 'D22CNPM02',
-        averageGrade: 8.0,
-        avatar: '/api/placeholder/40/40'
-      },
-      {
-        id: 8,
-        studentCode: 'B22DCCN008',
-        fullName: 'Ngô Thị Lan',
-        email: 'lan.nt@university.edu.vn',
-        birthDate: '30/08/2004',
-        className: 'D22CNPM03',
-        averageGrade: 9.2,
-        avatar: '/api/placeholder/40/40'
-      }
-    ];
-
-    // Initialize students data
-    useEffect(() => {
-      setStudentsLoading(true);
-      setTimeout(() => {
-        setStudents(mockStudents);
-        setStudentsLoading(false);
-      }, 500);
-    }, []);
-
     // Filter students based on search query
     const getFilteredStudents = () => {
       return students.filter(student =>
-        student.fullName.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-        student.studentCode.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-        student.email.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-        student.className.toLowerCase().includes(studentSearchQuery.toLowerCase())
+        student.fullName?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+        student.username?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+        student.email?.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+        student.administrativeClass?.code?.toLowerCase().includes(studentSearchQuery.toLowerCase())
       );
     };
 
     // Event handlers
     const handleSearchStudent = (event) => {
       setStudentSearchQuery(event.target.value);
-      setPage(0); // Reset to first page when searching
+      setPage(0);
     };
 
     const handleSelectStudent = (event, studentId) => {
@@ -1111,14 +577,14 @@ const CourseDetail = () => {
 
     const handleSelectAllStudents = (event) => {
       if (event.target.checked) {
-        const newSelecteds = getFilteredStudents().map((student) => student.id);
+        const newSelecteds = getFilteredStudents().map((student) => student._id);
         setSelectedStudents(newSelecteds);
         return;
       }
       setSelectedStudents([]);
     };
 
-    const isStudentSelected = (studentId) => selectedStudents.indexOf(studentId) !== -1;
+    const isStudentSelected = useCallback((id) => selectedStudents.indexOf(id) !== -1, [selectedStudents]);
 
     const handleChangePage = (event, newPage) => {
       setPage(newPage);
@@ -1133,6 +599,264 @@ const CourseDetail = () => {
     const numSelected = selectedStudents.length;
     const rowCount = filteredStudents.length;
 
+    const handlePrintList = useCallback(() => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Danh sách sinh viên - ${course?.name || 'Lớp học'}</title>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: 'Times New Roman', serif;
+              font-size: 12px;
+              margin: 20px;
+              line-height: 1.4;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 20px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 18px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .header h2 {
+              margin: 5px 0;
+              font-size: 16px;
+              font-weight: normal;
+            }
+            .course-info {
+              margin-bottom: 20px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .course-info div {
+              flex: 1;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #000;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f0f0f0;
+              font-weight: bold;
+              text-align: center;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .footer {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .signature {
+              text-align: center;
+              margin-top: 50px;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG</h1>
+            <h2>KHOA CÔNG NGHỆ THÔNG TIN</h2>
+            <h1 style="margin-top: 20px;">DANH SÁCH SINH VIÊN</h1>
+          </div>
+
+          <div class="course-info">
+            <div>
+              <strong>Môn học:</strong> ${course?.name || 'N/A'}<br>
+              <strong>Mã môn:</strong> ${course?.code || 'N/A'}<br>
+              <strong>Học kỳ:</strong> ${course?.semesterName || 'N/A'}
+            </div>
+            <div style="text-align: right;">
+              <strong>Ngày in:</strong> ${new Date().toLocaleDateString('vi-VN')}<br>
+              <strong>Tổng số SV:</strong> ${filteredStudents.length}<br>
+              <strong>Số tín chỉ:</strong> ${course?.credits || 'N/A'}
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">STT</th>
+                <th style="width: 120px;">Mã sinh viên</th>
+                <th style="width: 200px;">Họ và tên</th>
+                <th style="width: 100px;">Ngày sinh</th>
+                <th style="width: 100px;">Lớp</th>
+                <th style="width: 150px;">Ghi chú</th>
+                <th style="width: 120px;">Chữ ký</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredStudents.map((student, index) => `
+                <tr>
+                  <td class="text-center">${index + 1}</td>
+                  <td class="text-center">${student.userCode}</td>
+                  <td>${student.fullName}</td>
+                  <td class="text-center">${student.birthDate || 'N/A'}</td>
+                  <td class="text-center">${student.administrativeClass?.code || 'N/A'}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="signature">
+              <p><strong>Trưởng khoa</strong></p>
+              <p style="margin-top: 80px;">(Ký tên và đóng dấu)</p>
+            </div>
+            <div class="signature">
+              <p><strong>Giảng viên</strong></p>
+              <p style="margin-top: 80px;">${course?.instructor || 'Tên giảng viên'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  }, [filteredStudents]);
+  console.log(course);
+  // Export Excel functionality
+  const handleExportExcel = useCallback(() => {
+    try {
+      // Chuẩn bị dữ liệu cho Excel
+      const excelData = filteredStudents.map((student, index) => ({
+        'STT': index + 1,
+        'Mã sinh viên': student.userCode,
+        'Họ và tên': student.fullName,
+        'Ngày sinh': student.birthDate || 'N/A',
+        'Lớp': student.administrativeClass?.code || 'N/A',
+        'Email': student.email || 'N/A',
+        'Số điện thoại': student.phoneNumber || 'N/A',
+        'Địa chỉ': student.address || 'N/A',
+        'Ghi chú': student.note || ''
+      }));
+
+      // Tạo workbook và worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Thiết lập độ rộng cột
+      const colWidths = [
+        { wch: 5 },   // STT
+        { wch: 15 },  // Mã sinh viên
+        { wch: 25 },  // Họ và tên
+        { wch: 12 },  // Ngày sinh
+        { wch: 12 },  // Lớp
+        { wch: 25 },  // Email
+        { wch: 15 },  // Số điện thoại
+        { wch: 30 },  // Địa chỉ
+        { wch: 20 }   // Ghi chú
+      ];
+      ws['!cols'] = colWidths;
+
+      // Thêm thông tin header
+      const courseInfo = [
+        ['DANH SÁCH SINH VIÊN'],
+        [''],
+        ['Môn học:', course?.name || 'N/A'],
+        ['Mã môn:', course?.courseId.code || 'N/A'],
+        ['Học kỳ:', "Học kỳ " + course?.semester + ' năm học ' + course?.academicYear || 'N/A'],
+        ['Số tín chỉ:', course?.courseId.credits || 'N/A'],
+        ['Tổng số sinh viên:', filteredStudents.length],
+        ['Ngày xuất:', new Date().toLocaleDateString('vi-VN')],
+        ['']
+      ];
+
+      // Chèn thông tin header vào đầu worksheet
+      XLSX.utils.sheet_add_aoa(ws, courseInfo, { origin: 'A1' });
+      
+      // Điều chỉnh vị trí dữ liệu sinh viên
+      const studentDataRange = XLSX.utils.decode_range(ws['!ref']);
+      studentDataRange.s.r = courseInfo.length; // Bắt đầu từ dòng sau header
+      
+      // Thêm worksheet vào workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Danh sách sinh viên');
+
+      // Tạo tên file
+      const fileName = `DanhSach_SinhVien_${course?.code || 'Class'}_${new Date().getTime()}.xlsx`;
+
+      // Xuất file
+      XLSX.writeFile(wb, fileName);
+
+      // Thông báo thành công
+      console.log('Xuất Excel thành công:', fileName);
+      
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
+    }
+  }, [filteredStudents]);
+
+  // Export selected students only
+  const handleExportSelectedStudents = useCallback(() => {
+    if (selectedStudents.length === 0) {
+      alert('Vui lòng chọn ít nhất một sinh viên để xuất danh sách');
+      return;
+    }
+
+    const selectedStudentData = filteredStudents.filter(student => 
+      selectedStudents.includes(student._id)
+    );
+
+    try {
+      const excelData = selectedStudentData.map((student, index) => ({
+        'STT': index + 1,
+        'Mã sinh viên': student.userCode,
+        'Họ và tên': student.fullName,
+        'Ngày sinh': student.birthDate || 'N/A',
+        'Lớp': student.administrativeClass?.code || 'N/A',
+        'Email': student.email || 'N/A',
+        'Số điện thoại': student.phoneNumber || 'N/A',
+        'Địa chỉ': student.address || 'N/A',
+        'Ghi chú': student.note || ''
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      const colWidths = [
+        { wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, 
+        { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 20 }
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Sinh viên đã chọn');
+
+      const fileName = `DanhSach_SinhVien_DaChon_${course?.code || 'Class'}_${new Date().getTime()}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel cho sinh viên đã chọn:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
+    }
+  }, [selectedStudents, filteredStudents]);
+
     return (
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -1143,10 +867,10 @@ const CourseDetail = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="outlined" startIcon={<PersonAddIcon />}>
+            {/* <Button variant="outlined" startIcon={<PersonAddIcon />}>
               Thêm sinh viên
-            </Button>
-            <Button variant="outlined" startIcon={<DownloadIcon />}>
+            </Button> */}
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
               Xuất danh sách
             </Button>
           </Box>
@@ -1196,6 +920,7 @@ const CourseDetail = () => {
                 variant="outlined"
                 startIcon={<PrintIcon />}
                 size="small"
+                onClick={handlePrintList}
               >
                 In danh sách
               </Button>
@@ -1286,18 +1011,7 @@ const CourseDetail = () => {
                   >
                     Lớp
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      fontWeight: 600,
-                      textAlign: 'center',
-                      minWidth: 100
-                    }}
-                  >
-                    Điểm TB
-                  </TableCell>
-                  <TableCell
+                  {/* <TableCell
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'white',
@@ -1307,20 +1021,20 @@ const CourseDetail = () => {
                     }}
                   >
                     Thao tác
-                  </TableCell>
+                  </TableCell> */}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {studentsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography>Đang tải danh sách sinh viên...</Typography>
                       <LinearProgress sx={{ mt: 2 }} />
                     </TableCell>
                   </TableRow>
                 ) : filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} sx={{ textAlign: 'center', py: 4 }}>
+                    <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
                       <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
                         {studentSearchQuery ? 'Không tìm thấy sinh viên nào' : 'Chưa có sinh viên nào'}
                       </Typography>
@@ -1336,17 +1050,17 @@ const CourseDetail = () => {
                   filteredStudents
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((student, index) => {
-                      const isItemSelected = isStudentSelected(student.id);
+                      const isItemSelected = isStudentSelected(student._id);
                       const labelId = `enhanced-table-checkbox-${index}`;
 
                       return (
                         <TableRow
                           hover
-                          onClick={(event) => handleSelectStudent(event, student.id)}
+                          onClick={(event) => handleSelectStudent(event, student._id)}
                           role="checkbox"
                           aria-checked={isItemSelected}
                           tabIndex={-1}
-                          key={student.id}
+                          key={student._id}
                           selected={isItemSelected}
                           sx={{ cursor: 'pointer' }}
                         >
@@ -1368,15 +1082,14 @@ const CourseDetail = () => {
                             {page * rowsPerPage + index + 1}
                           </TableCell>
                           <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
-                            {student.studentCode}
+                            {student.username}
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                               <Avatar
-                                src={student.avatar}
                                 sx={{ width: 40, height: 40 }}
                               >
-                                {student.fullName.charAt(0)}
+                                {student.fullName?.charAt(0) || '?'}
                               </Avatar>
                               <Box>
                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -1392,31 +1105,18 @@ const CourseDetail = () => {
                           </TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>
                             <Typography variant="body2">
-                              {student.birthDate}
+                              {student.birthDate || 'N/A'}
                             </Typography>
                           </TableCell>
                           <TableCell sx={{ textAlign: 'center' }}>
                             <Chip
-                              label={student.className}
+                              label={student.administrativeClass?.code || 'N/A'}
                               size="small"
                               color="primary"
                               variant="outlined"
                             />
                           </TableCell>
-                          <TableCell sx={{ textAlign: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {student.averageGrade}
-                              </Typography>
-                              <Chip
-                                label={student.averageGrade >= 8.5 ? 'Giỏi' : student.averageGrade >= 7.0 ? 'Khá' : 'TB'}
-                                size="small"
-                                color={student.averageGrade >= 8.5 ? 'success' : student.averageGrade >= 7.0 ? 'warning' : 'default'}
-                                variant="outlined"
-                              />
-                            </Box>
-                          </TableCell>
-                          <TableCell sx={{ textAlign: 'center' }}>
+                          {/* <TableCell sx={{ textAlign: 'center' }}>
                             <Tooltip title="Xem chi tiết">
                               <IconButton
                                 size="small"
@@ -1455,7 +1155,7 @@ const CourseDetail = () => {
                                 <PersonRemoveIcon />
                               </IconButton>
                             </Tooltip>
-                          </TableCell>
+                          </TableCell> */}
                         </TableRow>
                       );
                     })
@@ -1505,22 +1205,9 @@ const CourseDetail = () => {
                   variant="outlined"
                   size="small"
                   startIcon={<DownloadIcon />}
-                  onClick={() => console.log('Export selected students')}
+                  onClick={handleExportSelectedStudents}
                 >
-                  Xuất danh sách
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  color="error"
-                  startIcon={<PersonRemoveIcon />}
-                  onClick={() => {
-                    if (window.confirm(`Bạn có chắc muốn xóa ${numSelected} sinh viên đã chọn?`)) {
-                      console.log('Remove selected students');
-                    }
-                  }}
-                >
-                  Xóa khỏi lớp
+                  Xuất danh sách ({numSelected})
                 </Button>
               </Box>
             </Box>
@@ -1529,8 +1216,6 @@ const CourseDetail = () => {
       </Box>
     );
   };
-
-  // ...rest of existing code...
 
   if (loading) {
     return (
@@ -1564,8 +1249,6 @@ const CourseDetail = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Breadcrumbs */}
-
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
         <Box>
@@ -1577,7 +1260,7 @@ const CourseDetail = () => {
               {course.name}
             </Typography>
             <Chip
-              label={course.code}
+              label={course.courseId?.code}
               color="primary"
               variant="outlined"
             />
@@ -1587,7 +1270,7 @@ const CourseDetail = () => {
             />
           </Box>
           <Typography variant="body1" color="text.secondary" sx={{ ml: 6 }}>
-            {course.description}
+            {course.courseId?.description || course.description}
           </Typography>
         </Box>
 
@@ -1625,9 +1308,7 @@ const CourseDetail = () => {
         >
           <Tab label="Tổng quan" icon={<AnalyticsIcon />} iconPosition="start" />
           <Tab label="Thông báo" icon={<AnnouncementIcon />} iconPosition="start" />
-          {/* <Tab label="Bài tập" icon={<AssignmentIcon />} iconPosition="start" /> */}
           <Tab label="Tài liệu" icon={<FolderIcon />} iconPosition="start" />
-          <Tab label="Thảo luận" icon={<ForumIcon />} iconPosition="start" />
           <Tab label="Sinh viên" icon={<PeopleIcon />} iconPosition="start" />
         </Tabs>
       </Paper>
@@ -1641,19 +1322,11 @@ const CourseDetail = () => {
         <AnnouncementsTab />
       </TabPanel>
 
-      {/* <TabPanel value={tabValue} index={2}>
-        <AssignmentsTab />
-      </TabPanel> */}
-
       <TabPanel value={tabValue} index={2}>
         <DocumentsTab />
       </TabPanel>
 
       <TabPanel value={tabValue} index={3}>
-        <DiscussionsTab />
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={4}>
         <StudentsTab />
       </TabPanel>
 
@@ -1663,18 +1336,29 @@ const CourseDetail = () => {
         onClose={() => setCreateAnnouncementOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: { height: '90vh' }
+        }}
       >
-        <DialogTitle>Tạo thông báo mới</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
+        <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AnnouncementIcon />
+            Tạo thông báo mới
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3} sx={{ mt: 2 }}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Tiêu đề"
+                label="Tiêu đề thông báo"
+                placeholder="Nhập tiêu đề thông báo..."
                 value={announcementForm.title}
                 onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                required
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Mức độ ưu tiên</InputLabel>
@@ -1683,47 +1367,137 @@ const CourseDetail = () => {
                   label="Mức độ ưu tiên"
                   onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
                 >
-                  <MenuItem value="low">Thấp</MenuItem>
-                  <MenuItem value="normal">Bình thường</MenuItem>
-                  <MenuItem value="high">Cao</MenuItem>
+                  <MenuItem value="thấp">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="THẤP" size="small" color="default" />
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="thường">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="BÌNH THƯỜNG" size="small" color="primary" />
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="cao">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="CAO" size="small" color="error" />
+                    </Box>
+                  </MenuItem>
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={announcementForm.sendEmail}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, sendEmail: e.target.checked })}
-                  />
-                }
-                label="Gửi email thông báo"
-              />
+              <Box sx={{ alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={announcementForm.sendEmail}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, sendEmail: e.target.checked })}
+                      color="primary"
+                    />
+                  }
+                  label="Gửi email thông báo cho sinh viên"
+                />
+              </Box>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Nội dung thông báo *
+              </Typography>
+              <Box sx={{ border: 0, width: '100%' }}>
+                <Editor
+                  apiKey="2knowjdoqtj7pi51xfq4e0b9t6b82xiggwnfl5qvuimfnztf"
+                  value={announcementForm.content}
+                  onEditorChange={(content) => setAnnouncementForm({ ...announcementForm, content })}
+                  init={{
+                    height: 500,
+                    width: 850,
+                    menubar: true,
+                    border: 0,
+                    plugins: [
+                      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                      'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                      'insertdatetime', 'media', 'table', 'help', 'wordcount', 'emoticons',
+                      'template', 'codesample', 'hr', 'pagebreak', 'nonbreaking',
+                      'textcolor', 'colorpicker'
+                    ],
+                    toolbar: [
+                      'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough',
+                      'forecolor backcolor | align lineheight | numlist bullist outdent indent',
+                      'link image media table | emoticons charmap hr pagebreak',
+                      'searchreplace visualblocks code fullscreen preview help'
+                    ].join(' | '),
+                    content_style: `
+                      body { 
+                        font-family: 'Roboto', Arial, sans-serif; 
+                        font-size: 14px; 
+                        line-height: 1.6;
+                        color: #333;
+                        padding: 10px;
+                      }
+                    `,
+                    language: 'vi',
+                    setup: function (editor) {
+                      editor.on('init', function () {
+                        editor.getContainer().style.transition = "border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out";
+                      });
+                      editor.on('focus', function () {
+                        editor.getContainer().style.borderColor = '#1976d2';
+                        editor.getContainer().style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.2)';
+                      });
+                      editor.on('blur', function () {
+                        editor.getContainer().style.borderColor = '#ddd';
+                        editor.getContainer().style.boxShadow = 'none';
+                      });
+                    }
+                  }}
+                />
+              </Box>
             </Grid>
           </Grid>
-          {/* <Grid item xs={12}> */}
-              <TextField
-                fullWidth
-                label="Nội dung"
-                multiline
-                rows={6}
-                sx={{mt: 2}}
-                value={announcementForm.content}
-                onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
-              />
-            {/* </Grid> */}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateAnnouncementOpen(false)}>
-            Hủy
-          </Button>
-          <Button onClick={handleCreateAnnouncement} variant="contained">
-            Tạo thông báo
-          </Button>
+
+        <DialogActions sx={{ p: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                * Các trường bắt buộc
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                onClick={() => {
+                  setCreateAnnouncementOpen(false);
+                  setAnnouncementForm({ title: '', content: '', priority: 'normal', sendEmail: true });
+                }}
+                variant="outlined"
+                startIcon={<CloseIcon />}
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!announcementForm.title.trim()) {
+                    alert('Vui lòng nhập tiêu đề thông báo');
+                    return;
+                  }
+                  if (!announcementForm.content.trim()) {
+                    alert('Vui lòng nhập nội dung thông báo');
+                    return;
+                  }
+                  handleCreateAnnouncement();
+                }}
+                variant="contained"
+                startIcon={<SendIcon />}
+                disabled={!announcementForm.title.trim() || !announcementForm.content.trim()}
+              >
+                Đăng thông báo
+              </Button>
+            </Box>
+          </Box>
         </DialogActions>
       </Dialog>
-
-      {/* Other dialogs can be added similarly */}
     </Box>
   );
 };

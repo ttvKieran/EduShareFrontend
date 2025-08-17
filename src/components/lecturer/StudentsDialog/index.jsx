@@ -1,4 +1,3 @@
-// StudentsDialog.jsx - Component riêng biệt
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   Dialog,
@@ -29,6 +28,7 @@ import {
   Visibility as VisibilityIcon,
   PersonRemove as PersonRemoveIcon
 } from '@mui/icons-material';
+import * as XLSX from 'xlsx';
 
 const StudentsDialog = ({ 
   open, 
@@ -37,6 +37,7 @@ const StudentsDialog = ({
   students, 
   studentsLoading 
 }) => {
+  console.log("check: ", students);
   // Local states - chỉ trong dialog này
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -56,8 +57,8 @@ const StudentsDialog = ({
   const filteredStudents = useMemo(() => {
     return students.filter(student =>
       student.fullName.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-      student.studentCode.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-      student.className.toLowerCase().includes(studentSearchQuery.toLowerCase())
+      student.userCode.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+      student.administrativeClass.code.toLowerCase().includes(studentSearchQuery.toLowerCase())
     );
   }, [students, studentSearchQuery]);
 
@@ -97,7 +98,7 @@ const StudentsDialog = ({
 
   const handleSelectAllStudents = useCallback((event) => {
     if (event.target.checked) {
-      const newSelecteds = filteredStudents.map((student) => student.id);
+      const newSelecteds = filteredStudents.map((student) => student._id);
       setSelectedStudents(newSelecteds);
       return;
     }
@@ -114,6 +115,265 @@ const StudentsDialog = ({
   }, []);
 
   const isStudentSelected = useCallback((id) => selectedStudents.indexOf(id) !== -1, [selectedStudents]);
+
+  // Print functionality
+  const handlePrintList = useCallback(() => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Danh sách sinh viên - ${selectedCourse?.name || 'Lớp học'}</title>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: 'Times New Roman', serif;
+              font-size: 12px;
+              margin: 20px;
+              line-height: 1.4;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 20px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 18px;
+              font-weight: bold;
+              text-transform: uppercase;
+            }
+            .header h2 {
+              margin: 5px 0;
+              font-size: 16px;
+              font-weight: normal;
+            }
+            .course-info {
+              margin-bottom: 20px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .course-info div {
+              flex: 1;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th, td {
+              border: 1px solid #000;
+              padding: 8px;
+              text-align: left;
+            }
+            th {
+              background-color: #f0f0f0;
+              font-weight: bold;
+              text-align: center;
+            }
+            .text-center {
+              text-align: center;
+            }
+            .text-right {
+              text-align: right;
+            }
+            .footer {
+              margin-top: 30px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .signature {
+              text-align: center;
+              margin-top: 50px;
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>HỌC VIỆN CÔNG NGHỆ BƯU CHÍNH VIỄN THÔNG</h1>
+            <h2>KHOA CÔNG NGHỆ THÔNG TIN</h2>
+            <h1 style="margin-top: 20px;">DANH SÁCH SINH VIÊN</h1>
+          </div>
+
+          <div class="course-info">
+            <div>
+              <strong>Môn học:</strong> ${selectedCourse?.name || 'N/A'}<br>
+              <strong>Mã môn:</strong> ${selectedCourse?.code || 'N/A'}<br>
+              <strong>Học kỳ:</strong> ${selectedCourse?.semesterName || 'N/A'}
+            </div>
+            <div style="text-align: right;">
+              <strong>Ngày in:</strong> ${new Date().toLocaleDateString('vi-VN')}<br>
+              <strong>Tổng số SV:</strong> ${filteredStudents.length}<br>
+              <strong>Số tín chỉ:</strong> ${selectedCourse?.credits || 'N/A'}
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">STT</th>
+                <th style="width: 120px;">Mã sinh viên</th>
+                <th style="width: 200px;">Họ và tên</th>
+                <th style="width: 100px;">Ngày sinh</th>
+                <th style="width: 100px;">Lớp</th>
+                <th style="width: 150px;">Ghi chú</th>
+                <th style="width: 120px;">Chữ ký</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredStudents.map((student, index) => `
+                <tr>
+                  <td class="text-center">${index + 1}</td>
+                  <td class="text-center">${student.userCode}</td>
+                  <td>${student.fullName}</td>
+                  <td class="text-center">${student.birthDate || 'N/A'}</td>
+                  <td class="text-center">${student.administrativeClass?.code || 'N/A'}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <div class="signature">
+              <p><strong>Trưởng khoa</strong></p>
+              <p style="margin-top: 80px;">(Ký tên và đóng dấu)</p>
+            </div>
+            <div class="signature">
+              <p><strong>Giảng viên</strong></p>
+              <p style="margin-top: 80px;">${selectedCourse?.instructor || 'Tên giảng viên'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
+  }, [filteredStudents, selectedCourse]);
+
+  // Export Excel functionality
+  const handleExportExcel = useCallback(() => {
+    try {
+      // Chuẩn bị dữ liệu cho Excel
+      const excelData = filteredStudents.map((student, index) => ({
+        'STT': index + 1,
+        'Mã sinh viên': student.userCode,
+        'Họ và tên': student.fullName,
+        'Ngày sinh': student.birthDate || 'N/A',
+        'Lớp': student.administrativeClass?.code || 'N/A',
+        'Email': student.email || 'N/A',
+        'Số điện thoại': student.phoneNumber || 'N/A',
+        'Địa chỉ': student.address || 'N/A',
+        'Ghi chú': student.note || ''
+      }));
+
+      // Tạo workbook và worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Thiết lập độ rộng cột
+      const colWidths = [
+        { wch: 5 },   // STT
+        { wch: 15 },  // Mã sinh viên
+        { wch: 25 },  // Họ và tên
+        { wch: 12 },  // Ngày sinh
+        { wch: 12 },  // Lớp
+        { wch: 25 },  // Email
+        { wch: 15 },  // Số điện thoại
+        { wch: 30 },  // Địa chỉ
+        { wch: 20 }   // Ghi chú
+      ];
+      ws['!cols'] = colWidths;
+
+      // Thêm thông tin header
+      const courseInfo = [
+        ['DANH SÁCH SINH VIÊN'],
+        [''],
+        ['Môn học:', selectedCourse?.name || 'N/A'],
+        ['Mã môn:', selectedCourse?.code || 'N/A'],
+        ['Học kỳ:', selectedCourse?.semesterName || 'N/A'],
+        ['Số tín chỉ:', selectedCourse?.credits || 'N/A'],
+        ['Tổng số sinh viên:', filteredStudents.length],
+        ['Ngày xuất:', new Date().toLocaleDateString('vi-VN')],
+        ['']
+      ];
+
+      // Chèn thông tin header vào đầu worksheet
+      XLSX.utils.sheet_add_aoa(ws, courseInfo, { origin: 'A1' });
+      
+      // Điều chỉnh vị trí dữ liệu sinh viên
+      const studentDataRange = XLSX.utils.decode_range(ws['!ref']);
+      studentDataRange.s.r = courseInfo.length; // Bắt đầu từ dòng sau header
+      
+      // Thêm worksheet vào workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Danh sách sinh viên');
+
+      // Tạo tên file
+      const fileName = `DanhSach_SinhVien_${selectedCourse?.code || 'Class'}_${new Date().getTime()}.xlsx`;
+
+      // Xuất file
+      XLSX.writeFile(wb, fileName);
+
+      // Thông báo thành công
+      console.log('Xuất Excel thành công:', fileName);
+      
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
+    }
+  }, [filteredStudents, selectedCourse]);
+
+  // Export selected students only
+  const handleExportSelectedStudents = useCallback(() => {
+    if (selectedStudents.length === 0) {
+      alert('Vui lòng chọn ít nhất một sinh viên để xuất danh sách');
+      return;
+    }
+
+    const selectedStudentData = filteredStudents.filter(student => 
+      selectedStudents.includes(student._id)
+    );
+
+    try {
+      const excelData = selectedStudentData.map((student, index) => ({
+        'STT': index + 1,
+        'Mã sinh viên': student.userCode,
+        'Họ và tên': student.fullName,
+        'Ngày sinh': student.birthDate || 'N/A',
+        'Lớp': student.administrativeClass?.code || 'N/A',
+        'Email': student.email || 'N/A',
+        'Số điện thoại': student.phoneNumber || 'N/A',
+        'Địa chỉ': student.address || 'N/A',
+        'Ghi chú': student.note || ''
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      const colWidths = [
+        { wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 12 }, 
+        { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 20 }
+      ];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Sinh viên đã chọn');
+
+      const fileName = `DanhSach_SinhVien_DaChon_${selectedCourse?.code || 'Class'}_${new Date().getTime()}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+    } catch (error) {
+      console.error('Lỗi khi xuất Excel cho sinh viên đã chọn:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel. Vui lòng thử lại.');
+    }
+  }, [selectedStudents, filteredStudents, selectedCourse]);
 
   const numSelected = selectedStudents.length;
   const rowCount = filteredStudents.length;
@@ -156,17 +416,11 @@ const StudentsDialog = ({
             />
             <Typography variant="body2" color="text.secondary">
               Tổng: {filteredStudents.length} sinh viên
+              {numSelected > 0 && ` • Đã chọn: ${numSelected}`}
             </Typography>
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="outlined"
-              startIcon={<PersonAddIcon />}
-              size="small"
-            >
-              Thêm SV
-            </Button>
             <Button
               variant="outlined"
               startIcon={<EmailIcon />}
@@ -175,20 +429,57 @@ const StudentsDialog = ({
             >
               Gửi email ({numSelected})
             </Button>
+            
             <Button
               variant="outlined"
               startIcon={<PrintIcon />}
               size="small"
+              onClick={handlePrintList}
+              sx={{
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                '&:hover': {
+                  borderColor: 'primary.dark',
+                  backgroundColor: 'primary.50'
+                }
+              }}
             >
               In danh sách
             </Button>
+            
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<DownloadIcon />}
               size="small"
+              onClick={handleExportExcel}
+              sx={{
+                backgroundColor: 'success.main',
+                '&:hover': {
+                  backgroundColor: 'success.dark'
+                }
+              }}
             >
               Xuất Excel
             </Button>
+
+            {numSelected > 0 && (
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                size="small"
+                onClick={handleExportSelectedStudents}
+                sx={{
+                  borderColor: 'success.main',
+                  color: 'success.main',
+                  '&:hover': {
+                    borderColor: 'success.dark',
+                    backgroundColor: 'success.50'
+                  }
+                }}
+              >
+                Xuất đã chọn ({numSelected})
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -266,40 +557,29 @@ const StudentsDialog = ({
                 >
                   Lớp
                 </TableCell>
-                <TableCell 
-                  sx={{ 
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    fontWeight: 600,
-                    textAlign: 'center',
-                    minWidth: 100
-                  }}
-                >
-                  Thao tác
-                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {studentsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                  <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
                     <Typography>Đang tải danh sách sinh viên...</Typography>
                     <LinearProgress sx={{ mt: 2 }} />
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedStudents.map((student, index) => {
-                  const isItemSelected = isStudentSelected(student.id);
+                  const isItemSelected = isStudentSelected(student._id);
                   const labelId = `enhanced-table-checkbox-${index}`;
 
                   return (
                     <TableRow
                       hover
-                      onClick={(event) => handleSelectStudent(event, student.id)}
+                      onClick={(event) => handleSelectStudent(event, student._id)}
                       role="checkbox"
                       aria-checked={isItemSelected}
                       tabIndex={-1}
-                      key={student.id}
+                      key={student._id}
                       selected={isItemSelected}
                       sx={{ cursor: 'pointer' }}
                     >
@@ -321,43 +601,21 @@ const StudentsDialog = ({
                         {page * rowsPerPage + index + 1}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
-                        {student.studentCode}
+                        {student.userCode}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
                         {student.fullName}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center' }}>
-                        {student.birthDate}
+                        {student.birthDate || 'N/A'}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'center' }}>
                         <Chip 
-                          label={student.className}
+                          label={student.administrativeClass?.code || 'N/A'}
                           size="small"
                           color="primary"
                           variant="outlined"
                         />
-                      </TableCell>
-                      <TableCell sx={{ textAlign: 'center' }}>
-                        <IconButton 
-                          size="small"
-                          color="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Handle view student details
-                          }}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                        <IconButton 
-                          size="small"
-                          color="error"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Handle remove student
-                          }}
-                        >
-                          <PersonRemoveIcon />
-                        </IconButton>
                       </TableCell>
                     </TableRow>
                   );

@@ -91,12 +91,11 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import StudentsDialog from '../StudentsDialog'; // Import component riêng
-
-// ... other imports remain the same
+import StudentsDialog from '../StudentsDialog';
+import API_BASE_URL from '../../../configs/system';
 
 const CourseManagement = () => {
-  const { user } = useAuth();
+  const { user, authenticatedFetch } = useAuth();
   const navigate = useNavigate();
 
   console.log("refresh main");
@@ -110,6 +109,7 @@ const CourseManagement = () => {
   const [expandedSemesters, setExpandedSemesters] = useState({});
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [error, setError] = useState(null);
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -137,7 +137,129 @@ const CourseManagement = () => {
   });
 
   const prevStates = useRef({});
-  
+
+  // Fetch courses from API
+  const fetchCourses = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/classes/`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.data)) {
+        // Transform API data to match frontend structure
+        const transformedCourses = data.data.map(classItem => ({
+          id: classItem._id,
+          name: classItem.name,
+          code: classItem.courseId?.code || 'N/A',
+          description: classItem.description || classItem.courseId?.description || '',
+          semester: `${classItem.academicYear}.${classItem.semester}`,
+          semesterName: `Học kỳ ${classItem.semester} năm ${classItem.academicYear}`,
+          academicYear: classItem.academicYear,
+          semesterNumber: classItem.semester,
+          credits: classItem.courseId?.credits || 0,
+          maxStudents: classItem.courseId?.maxStudents || 50,
+          enrolledStudents: classItem.studentIds?.length || 0,
+          status: classItem.status,
+          lastUpdated: classItem.updatedAt,
+          documents: classItem.documentIds?.length || 0,
+          
+          // Course details
+          courseId: classItem.courseId?._id,
+          courseName: classItem.courseId?.name,
+          courseType: classItem.courseId?.courseType,
+          
+          // Schedule information
+          schedule: classItem.schedule?.map(schedule => ({
+            day: getDayName(schedule.dayOfWeek),
+            time: `${schedule.timeStart}-${schedule.timeEnd}`,
+            room: schedule.classroom
+          })) || [],
+          
+          // Student information
+          students: classItem.studentIds || [],
+          
+          // Derived fields (since API doesn't provide these)
+          progress: 0, // Will be calculated later if needed
+          assignments: 0, // Will be fetched separately if needed
+          avgGrade: null, // Will be calculated later if needed
+          completedLessons: 0,
+          totalLessons: 0,
+          nextClass: getNextClassTime(classItem.schedule)
+        }));
+        
+        setCourses(transformedCourses);
+        
+        // Auto-expand current semester
+        const currentSemester = getCurrentSemester();
+        setExpandedSemesters({ [currentSemester]: true });
+        
+      } else {
+        throw new Error(data.message || 'Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setError(error.message);
+      setCourses([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [authenticatedFetch]);
+
+  // Helper function to get day name from day number
+  const getDayName = (dayOfWeek) => {
+    const days = {
+      1: 'Chủ nhật',
+      2: 'Thứ 2', 
+      3: 'Thứ 3',
+      4: 'Thứ 4',
+      5: 'Thứ 5',
+      6: 'Thứ 6',
+      7: 'Thứ 7'
+    };
+    return days[dayOfWeek] || 'N/A';
+  };
+
+  // Helper function to calculate next class time
+  const getNextClassTime = (schedule) => {
+    if (!schedule || schedule.length === 0) return null;
+    
+    const now = new Date();
+    const currentDay = now.getDay() === 0 ? 7 : now.getDay(); // Convert Sunday from 0 to 7
+    const currentTime = now.getHours() * 100 + now.getMinutes();
+    
+    // Find next class
+    for (let i = 0; i < 7; i++) {
+      const checkDay = ((currentDay + i - 1) % 7) + 1;
+      const todaySchedules = schedule.filter(s => s.dayOfWeek === checkDay);
+      
+      for (const sch of todaySchedules) {
+        const classTime = parseInt(sch.timeStart.replace(':', ''));
+        if (i === 0 && classTime <= currentTime) continue; // Skip past classes today
+        
+        const nextDate = new Date(now);
+        nextDate.setDate(nextDate.getDate() + i);
+        const [hours, minutes] = sch.timeStart.split(':');
+        nextDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+        
+        return nextDate.toISOString();
+      }
+    }
+    
+    return null;
+  };
+
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
+
   useEffect(() => {
     const currentStates = {
       courses: courses.length,
@@ -172,275 +294,17 @@ const CourseManagement = () => {
     prevStates.current = currentStates;
   });
 
-  // Mock data for students
-  const mockStudents = [
-    {
-      id: 1,
-      stt: 1,
-      studentCode: 'B22DCCN007',
-      fullName: 'Trần Quốc An',
-      birthDate: '13/07/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 2,
-      stt: 2,
-      studentCode: 'B22DCCN018',
-      fullName: 'Hoa Đức Anh',
-      birthDate: '20/10/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 3,
-      stt: 3,
-      studentCode: 'B22DCCN030',
-      fullName: 'Nguyễn Quang Anh',
-      birthDate: '10/08/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 4,
-      stt: 4,
-      studentCode: 'B22DCCN042',
-      fullName: 'Phan Tuấn Anh',
-      birthDate: '31/07/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 5,
-      stt: 5,
-      studentCode: 'B22DCCN053',
-      fullName: 'Đỗ Xuân Bách',
-      birthDate: '24/11/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 6,
-      stt: 6,
-      studentCode: 'B22DCCN054',
-      fullName: 'Hoàng Xuân Bách',
-      birthDate: '23/07/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 7,
-      stt: 7,
-      studentCode: 'B22DCCN055',
-      fullName: 'Phùng Đức Bách',
-      birthDate: '17/05/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 8,
-      stt: 8,
-      studentCode: 'B22DCCN078',
-      fullName: 'Phan Văn Biên',
-      birthDate: '03/08/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 9,
-      stt: 9,
-      studentCode: 'B22DCCN079',
-      fullName: 'Bùi Văn Bình',
-      birthDate: '16/09/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 10,
-      stt: 10,
-      studentCode: 'B22DCCN115',
-      fullName: 'Trần Đức Chánh',
-      birthDate: '11/10/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 11,
-      stt: 11,
-      studentCode: 'B22DCCN089',
-      fullName: 'Nguyễn Sỹ Công',
-      birthDate: '28/09/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 12,
-      stt: 12,
-      studentCode: 'B22DCCN103',
-      fullName: 'Vũ Văn Cường',
-      birthDate: '27/03/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 13,
-      stt: 13,
-      studentCode: 'B22DCCN125',
-      fullName: 'Hà Minh Đăng',
-      birthDate: '12/05/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 14,
-      stt: 14,
-      studentCode: 'B22DCCN137',
-      fullName: 'Phùng Đình Đăng',
-      birthDate: '15/10/2003',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 15,
-      stt: 15,
-      studentCode: 'B22DCCN149',
-      fullName: 'Mac Đức Duy',
-      birthDate: '14/06/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 16,
-      stt: 16,
-      studentCode: 'B22DCCN198',
-      fullName: 'Nguyễn Thủ Đat',
-      birthDate: '15/12/2002',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 17,
-      stt: 17,
-      studentCode: 'B22DCCN221',
-      fullName: 'Đào Ngọc Đức',
-      birthDate: '14/06/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 18,
-      stt: 18,
-      studentCode: 'B22DCCN222',
-      fullName: 'Đào Trung Đức',
-      birthDate: '23/10/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 19,
-      stt: 19,
-      studentCode: 'B22DCCN246',
-      fullName: 'Tiến Văn Gác',
-      birthDate: '01/09/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 20,
-      stt: 20,
-      studentCode: 'B22DCCN258',
-      fullName: 'Nguyễn Hữu Hà',
-      birthDate: '20/11/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 21,
-      stt: 21,
-      studentCode: 'B22DCCN281',
-      fullName: 'Võ Thị Thu Hằng',
-      birthDate: '24/09/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 22,
-      stt: 22,
-      studentCode: 'B22DCCN293',
-      fullName: 'Trần Đình Hiển',
-      birthDate: '11/07/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 23,
-      stt: 23,
-      studentCode: 'B20DCCN241',
-      fullName: 'Bùi Trung Hiếu',
-      birthDate: '11/03/2002',
-      className: 'D20HTT1'
-    },
-    {
-      id: 24,
-      stt: 24,
-      studentCode: 'B22DCCN330',
-      fullName: 'Đào Huy Hoàng',
-      birthDate: '01/01/2004',
-      className: 'D22CNPM03'
-    },
-    {
-      id: 25,
-      stt: 25,
-      studentCode: 'B22DCCN365',
-      fullName: 'Ngư Quang Hùng',
-      birthDate: '20/02/2004',
-      className: 'D22CNPM03'
-    }
-  ];
-
-  // Mock data with more realistic semester structure
-  const mockCourses = [
-    {
-      id: 1,
-      name: 'Lập trình hướng đối tượng',
-      code: 'IT3103',
-      description: 'Học lập trình hướng đối tượng với Java',
-      semester: '2024.1',
-      semesterName: 'Học kỳ I năm 2024-2025',
-      credits: 3,
-      maxStudents: 50,
-      enrolledStudents: 42,
-      status: 'active',
-      progress: 65,
-      assignments: 8,
-      documents: 15,
-      lastUpdated: '2024-08-10T10:30:00Z',
-      schedule: [
-        { day: 'Thứ 2', time: '08:00-09:30', room: 'Lab A2' },
-        { day: 'Thứ 4', time: '08:00-09:30', room: 'Lab A2' }
-      ],
-      avgGrade: 7.8,
-      completedLessons: 13,
-      totalLessons: 20,
-      nextClass: '2024-08-15T08:00:00Z'
-    },
-    {
-      id: 2,
-      name: 'Cơ sở dữ liệu',
-      code: 'IT3090',
-      description: 'Thiết kế và quản lý cơ sở dữ liệu',
-      semester: '2024.1',
-      semesterName: 'Học kỳ I năm 2024-2025',
-      credits: 4,
-      maxStudents: 45,
-      enrolledStudents: 38,
-      status: 'active',
-      progress: 80,
-      assignments: 6,
-      documents: 22,
-      lastUpdated: '2024-08-09T14:20:00Z',
-      schedule: [
-        { day: 'Thứ 3', time: '14:00-16:30', room: 'P205' },
-        { day: 'Thứ 5', time: '14:00-16:30', room: 'P205' }
-      ],
-      avgGrade: 8.2,
-      completedLessons: 16,
-      totalLessons: 20,
-      nextClass: '2024-08-16T14:00:00Z'
-    },
-    // ... other courses remain the same
-  ];
-
-  useEffect(() => {
-    setTimeout(() => {
-      setCourses(mockCourses);
-      setLoading(false);
-      const currentSemester = getCurrentSemester();
-      setExpandedSemesters({ [currentSemester]: true });
-    }, 1000);
-  }, []);
-
   // Helper functions
   const getCurrentSemester = () => {
-    return '2024.1';
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    
+    // Assume semester 1 is Sep-Jan, semester 2 is Feb-Aug
+    const semester = month >= 9 || month <= 1 ? 1 : 2;
+    const academicYear = month >= 9 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+    
+    return `${academicYear}.${semester}`;
   };
 
   const getSemesters = () => {
@@ -459,13 +323,13 @@ const CourseManagement = () => {
     return Object.values(semesterMap).sort((a, b) => b.id.localeCompare(a.id));
   };
 
-  // 🔍 KIỂM TRA CÁC DEPENDENCIES CỦA useMemo VÀ useCallback
+  // Students data handling
   const getFilteredStudents = useMemo(() => {
     console.log('📊 getFilteredStudents recalculated');
     return students.filter(student =>
       student.fullName.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-      student.studentCode.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
-      student.className.toLowerCase().includes(studentSearchQuery.toLowerCase())
+      student.username.toLowerCase().includes(studentSearchQuery.toLowerCase()) ||
+      student.administrativeClass?.code.toLowerCase().includes(studentSearchQuery.toLowerCase())
     );
   }, [students, studentSearchQuery]);
 
@@ -519,7 +383,7 @@ const CourseManagement = () => {
   const handleSelectAllStudents = useCallback((event) => {
     console.log('🎯 handleSelectAllStudents called');
     if (event.target.checked) {
-      const newSelecteds = getFilteredStudents.map((student) => student.id);
+      const newSelecteds = getFilteredStudents.map((student) => student._id);
       setSelectedStudents(newSelecteds);
       return;
     }
@@ -541,13 +405,13 @@ const CourseManagement = () => {
     setStudentsLoading(true);
     setStudentsDialogOpen(true);
     
+    // Set students from course data
     setTimeout(() => {
-      setStudents(mockStudents);
+      setStudents(course.students || []);
       setStudentsLoading(false);
     }, 500);
-  }, [mockStudents]);
+  }, []);
 
-  // Thêm debug cho tất cả các handlers khác
   const handleMenuOpen = useCallback((event, course) => {
     console.log('📝 handleMenuOpen called');
     setAnchorEl(event.currentTarget);
@@ -568,7 +432,6 @@ const CourseManagement = () => {
     }));
   }, []);
 
-
   const getFilteredCourses = (semesterCourses) => {
     return semesterCourses.filter(course => 
       course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -578,8 +441,7 @@ const CourseManagement = () => {
 
   const isStudentSelected = useCallback((id) => selectedStudents.indexOf(id) !== -1, [selectedStudents]);
 
-
-  // Status functions (same as before)
+  // Status functions
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'success';
@@ -612,7 +474,7 @@ const CourseManagement = () => {
     });
   };
 
-  // Memoized Course Card Component để tránh re-render không cần thiết
+  // Memoized Course Card Component
   const CourseCard = React.memo(({ course, isCompact = false }) => (
     <Card 
       sx={{ 
@@ -627,7 +489,6 @@ const CourseManagement = () => {
         }
       }}
     >
-      {/* Course card content remains the same */}
       <Box
         sx={{
           position: 'absolute',
@@ -662,12 +523,6 @@ const CourseManagement = () => {
               />
             </Box>
           </Box>
-          {/* <IconButton 
-            size="small"
-            onClick={(e) => handleMenuOpen(e, course)}
-          >
-            <MoreVertIcon />
-          </IconButton> */}
         </Box>
 
         {/* Quick Stats */}
@@ -690,43 +545,41 @@ const CourseManagement = () => {
           </Grid>
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <AssignmentIcon sx={{ fontSize: 16, color: 'success.main' }} />
+              <SchoolIcon sx={{ fontSize: 16, color: 'success.main' }} />
               <Typography variant="caption">
-                {course.assignments} bài tập
+                {course.credits} tín chỉ
               </Typography>
             </Box>
           </Grid>
           <Grid item xs={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <GradeIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
+              <ScheduleIcon sx={{ fontSize: 16, color: 'secondary.main' }} />
               <Typography variant="caption">
-                ĐTB: {course.avgGrade || '--'}
+                {course.courseType || 'N/A'}
               </Typography>
             </Box>
           </Grid>
         </Grid>
 
-        {/* Progress */}
-        {course.status !== 'draft' && (
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                Tiến độ học tập
-              </Typography>
-              <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                {course.completedLessons}/{course.totalLessons}
-              </Typography>
-            </Box>
-            <LinearProgress 
-              variant="determinate" 
-              value={course.progress}
-              sx={{ height: 6, borderRadius: 3 }}
-            />
-          </Box>
+        {/* Description */}
+        {course.description && (
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              mb: 2,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}
+          >
+            {course.description}
+          </Typography>
         )}
 
         {/* Schedule */}
-        {course.schedule.length > 0 && (
+        {course.schedule && course.schedule.length > 0 && (
           <Box sx={{ mb: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
               Lịch học:
@@ -771,7 +624,7 @@ const CourseManagement = () => {
           startIcon={<PeopleIcon />}
           onClick={() => handleViewStudents(course)}
         >
-          SV
+          SV ({course.enrolledStudents})
         </Button>
         <Button
           size="small"
@@ -793,55 +646,36 @@ const CourseManagement = () => {
 
     return (
       <Grid container spacing={2} sx={{ mb: 0 }}>
-        {/* <Grid item xs={3}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" color="success.main" sx={{ fontWeight: 600 }}>
-              {activeCourses}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Đang diễn ra
-            </Typography>
-          </Box>
-        </Grid>
-        <Grid item xs={3}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" color="primary.main" sx={{ fontWeight: 600 }}>
-              {completedCourses}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Hoàn thành
-            </Typography>
-          </Box>
-        </Grid> */}
-        {/* <Grid item xs={3}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" color="warning.main" sx={{ fontWeight: 600 }}>
-              {draftCourses}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Bản nháp
-            </Typography>
-          </Box>
-        </Grid>
-        <Grid item xs={3}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" color="secondary.main" sx={{ fontWeight: 600 }}>
-              {totalStudents}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Sinh viên
-            </Typography>
-          </Box>
-        </Grid> */}
+        {/* Summary stats can be shown here if needed */}
       </Grid>
     );
   });
 
+  // Loading state
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography variant="h4" sx={{ mb: 3 }}></Typography>
+        <Typography variant="h4" sx={{ mb: 3 }}>Đang tải dữ liệu...</Typography>
         <LinearProgress />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="h6">Lỗi tải dữ liệu</Typography>
+          <Typography>{error}</Typography>
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={fetchCourses}
+          startIcon={<ScheduleIcon />}
+        >
+          Thử lại
+        </Button>
       </Box>
     );
   }
@@ -850,24 +684,6 @@ const CourseManagement = () => {
 
   return (
     <Box sx={{ p: 2 }}>
-      {/* Header */}
-      {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <ClassIcon sx={{ mr: 1, fontSize: '2rem' }} />
-          <Typography variant="h4" sx={{ fontWeight: 600 }}>
-            Quản lý Môn học
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {}} // handleCreateCourse
-          sx={{ height: 'fit-content' }}
-        >
-          Tạo môn học mới
-        </Button>
-      </Box> */}
-
       {/* Search */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <TextField
@@ -885,105 +701,112 @@ const CourseManagement = () => {
         />
       </Paper>
 
+      {/* Refresh Button */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="outlined"
+          startIcon={<ScheduleIcon />}
+          onClick={fetchCourses}
+          disabled={loading}
+        >
+          Làm mới
+        </Button>
+      </Box>
+
       {/* Semesters */}
-      <Stack spacing={3}>
-        {semesters.map((semester) => {
-          const filteredCourses = getFilteredCourses(semester.courses);
-          const isExpanded = expandedSemesters[semester.id];
-          const isCurrentSemester = semester.id === getCurrentSemester();
-          
-          return (
-            <Paper key={semester.id} sx={{ overflow: 'hidden' }}>
-              <Accordion 
-                expanded={isExpanded}
-                onChange={() => handleSemesterToggle(semester.id)}
-                sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}
-              >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  sx={{ 
-                    bgcolor: isCurrentSemester ? 'primary.50' : 'grey.50',
-                    borderLeft: isCurrentSemester ? '4px solid' : 'none',
-                    borderLeftColor: 'primary.main',
-                    '&:hover': { bgcolor: isCurrentSemester ? 'primary.100' : 'grey.100' }
-                  }}
+      {semesters.length > 0 ? (
+        <Stack spacing={3}>
+          {semesters.map((semester) => {
+            const filteredCourses = getFilteredCourses(semester.courses);
+            const isExpanded = expandedSemesters[semester.id];
+            const isCurrentSemester = semester.id === getCurrentSemester();
+            
+            return (
+              <Paper key={semester.id} sx={{ overflow: 'hidden' }}>
+                <Accordion 
+                  expanded={isExpanded}
+                  onChange={() => handleSemesterToggle(semester.id)}
+                  sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}
                 >
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                      <CalendarIcon sx={{ color: isCurrentSemester ? 'primary.main' : 'text.secondary' }} />
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {semester.name}
-                      </Typography>
-                      {isCurrentSemester && (
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    sx={{ 
+                      bgcolor: isCurrentSemester ? 'primary.50' : 'grey.50',
+                      borderLeft: isCurrentSemester ? '4px solid' : 'none',
+                      borderLeftColor: 'primary.main',
+                      '&:hover': { bgcolor: isCurrentSemester ? 'primary.100' : 'grey.100' }
+                    }}
+                  >
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                        <CalendarIcon sx={{ color: isCurrentSemester ? 'primary.main' : 'text.secondary' }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                          {semester.name}
+                        </Typography>
+                        {isCurrentSemester && (
+                          <Chip 
+                            label="Hiện tại" 
+                            color="primary" 
+                            size="small"
+                          />
+                        )}
                         <Chip 
-                          label="Hiện tại" 
-                          color="primary" 
+                          label={`${semester.courses.length} lớp học`} 
+                          variant="outlined" 
                           size="small"
                         />
+                      </Box>
+                      
+                      {isExpanded && (
+                        <SemesterSummary semester={semester} />
                       )}
-                      <Chip 
-                        label={`${semester.courses.length} môn học`} 
-                        variant="outlined" 
-                        size="small"
-                      />
                     </Box>
-                    
-                    {isExpanded && (
-                      <SemesterSummary semester={semester} />
+                  </AccordionSummary>
+                  
+                  <AccordionDetails sx={{ p: 3 }}>
+                    {filteredCourses.length > 0 ? (
+                      <Grid container spacing={3}>
+                        {filteredCourses.map((course) => (
+                          <Grid item xs={12} md={6} lg={4} key={course.id}>
+                            <CourseCard course={course} />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <ClassIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                          {searchQuery ? 'Không tìm thấy lớp học nào' : 'Chưa có lớp học'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {searchQuery ? 'Thử từ khóa khác' : 'Chưa có lớp học nào trong học kỳ này'}
+                        </Typography>
+                      </Box>
                     )}
-                  </Box>
-                </AccordionSummary>
-                
-                <AccordionDetails sx={{ p: 3 }}>
-                  {filteredCourses.length > 0 ? (
-                    <Grid container spacing={3}>
-                      {filteredCourses.map((course) => (
-                        <Grid item xs={12} md={6} lg={4} key={course.id}>
-                          <CourseCard course={course} />
-                        </Grid>
-                      ))}
-                    </Grid>
-                  ) : (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <ClassIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                        {searchQuery ? 'Không tìm thấy môn học nào' : 'Chưa có môn học'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {searchQuery ? 'Thử từ khóa khác' : 'Tạo môn học đầu tiên cho học kỳ này'}
-                      </Typography>
-                    </Box>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            </Paper>
-          );
-        })}
-      </Stack>
-
-      {/* Context Menu */}
-      {/* <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => navigate(`/lecturer/classes/${selectedCourse?.id}`)}>
-          <VisibilityIcon sx={{ mr: 2 }} />
-          Xem chi tiết
-        </MenuItem>
-        <MenuItem onClick={() => handleViewStudents(selectedCourse)}>
-          <PeopleIcon sx={{ mr: 2 }} />
-          Danh sách sinh viên
-        </MenuItem>
-        <MenuItem onClick={() => navigate(`/lecturer/classes/${selectedCourse?.id}/documents`)}>
-          <FolderIcon sx={{ mr: 2 }} />
-          Tài liệu
-        </MenuItem>
-        <MenuItem onClick={() => navigate(`/lecturer/classes/${selectedCourse?.id}/assignments`)}>
-          <AssignmentIcon sx={{ mr: 2 }} />
-          Bài tập
-        </MenuItem>
-      </Menu> */}
+                  </AccordionDetails>
+                </Accordion>
+              </Paper>
+            );
+          })}
+        </Stack>
+      ) : (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <ClassIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+          <Typography variant="h5" color="text.secondary" sx={{ mb: 1 }}>
+            Chưa có lớp học nào
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            Bạn chưa được phân công giảng dạy lớp học nào
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<ScheduleIcon />}
+            onClick={fetchCourses}
+          >
+            Làm mới danh sách
+          </Button>
+        </Box>
+      )}
 
       {/* Students Dialog */}
       <StudentsDialog

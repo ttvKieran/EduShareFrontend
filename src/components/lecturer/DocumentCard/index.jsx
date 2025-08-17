@@ -17,7 +17,14 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Grid
+    Grid,
+    TextField,
+    FormControl,
+    InputLabel,
+    Select,
+    Switch,
+    FormControlLabel,
+    Alert
 } from '@mui/material';
 import {
     Description,
@@ -32,7 +39,10 @@ import {
     Visibility as VisibilityIcon,
     Download as DownloadIcon,
     MoreVert as MoreVertIcon,
-    Close as CloseIcon
+    Close as CloseIcon,
+    Save as SaveIcon,
+    Cancel as CancelIcon,
+    CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 
 const LecturerDocumentCard = ({ 
@@ -44,6 +54,54 @@ const LecturerDocumentCard = ({
     onTogglePublish 
 }) => {
     const [anchorEl, setAnchorEl] = useState(null);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editForm, setEditForm] = useState({
+        title: '',
+        description: '',
+        type: '',
+        category: '',
+        tags: '',
+        isPublished: false
+    });
+
+    // Initialize edit form when opening dialog
+    const handleEditClick = () => {
+        setEditForm({
+            title: document.title || '',
+            description: document.description || '',
+            type: document.type || '',
+            category: document.category || '',
+            tags: document.tags ? document.tags.join(', ') : '',
+            isPublished: document.isPublished || false
+        });
+        setEditDialogOpen(true);
+    };
+
+    // Handle form input changes
+    const handleFormChange = (field, value) => {
+        setEditForm(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    // Handle save changes
+    const handleSaveChanges = () => {
+        const updatedDocument = {
+            ...document,
+            title: editForm.title,
+            description: editForm.description,
+            type: editForm.type,
+            category: editForm.category,
+            tags: editForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+            isPublished: editForm.isPublished,
+            updatedAt: new Date().toISOString()
+        };
+        
+        onEdit(updatedDocument);
+        setEditDialogOpen(false);
+        console.log('Document updated:', updatedDocument);
+    };
 
     // Helper functions
     const getFileIcon = (document) => {
@@ -278,11 +336,12 @@ const LecturerDocumentCard = ({
                         variant="contained"
                         size="small"
                         startIcon={<EditIcon />}
-                        onClick={() => onEdit(document)}
+                        onClick={handleEditClick}
                         sx={{
-                            backgroundColor: '#ed6c02',
+                            backgroundColor: '#1976d2',
+                            color: 'white',
                             '&:hover': {
-                                backgroundColor: '#e65100'
+                                backgroundColor: '#1565c0'
                             },
                             fontSize: '10px'
                         }}
@@ -306,12 +365,12 @@ const LecturerDocumentCard = ({
                     <DownloadIcon sx={{ mr: 2 }} />
                     Tải xuống
                 </MenuItem>
-                <MenuItem onClick={() => handleMenuClick(() => onEdit(document))}>
+                <MenuItem onClick={() => handleMenuClick(handleEditClick)}>
                     <EditIcon sx={{ mr: 2 }} />
                     Chỉnh sửa
                 </MenuItem>
                 <MenuItem onClick={() => handleMenuClick(() => onTogglePublish(document))}>
-                    {document.isPublished ? <VisibilityIcon sx={{ mr: 2 }} /> : <VisibilityOffIcon sx={{ mr: 2 }} />}
+                    {document.isPublished ? <VisibilityOffIcon sx={{ mr: 2 }} /> : <VisibilityIcon sx={{ mr: 2 }} />}
                     {document.isPublished ? 'Ẩn tài liệu' : 'Xuất bản'}
                 </MenuItem>
                 <Divider />
@@ -323,6 +382,186 @@ const LecturerDocumentCard = ({
                     Xóa tài liệu
                 </MenuItem>
             </Menu>
+
+            {/* Edit Document Dialog */}
+            <Dialog
+                open={editDialogOpen}
+                onClose={() => setEditDialogOpen(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <EditIcon />
+                        Chỉnh sửa tài liệu
+                    </Box>
+                </DialogTitle>
+                <DialogContent sx={{ p: 3 }}>
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                        Bạn chỉ có thể chỉnh sửa thông tin mô tả, không thể thay đổi file gốc. 
+                        Để thay đổi file, vui lòng tải lên tài liệu mới.
+                    </Alert>
+                    
+                    <Grid container spacing={3} sx={{ mt: 1 }}>
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Tiêu đề tài liệu"
+                                value={editForm.title}
+                                onChange={(e) => handleFormChange('title', e.target.value)}
+                                required
+                            />
+                        </Grid>
+                        
+                        <Grid item xs={12} md={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Loại tài liệu</InputLabel>
+                                <Select
+                                    value={editForm.type}
+                                    label="Loại tài liệu"
+                                    onChange={(e) => handleFormChange('type', e.target.value)}
+                                >
+                                    <MenuItem value="lecture">Bài giảng</MenuItem>
+                                    <MenuItem value="exercise">Bài tập</MenuItem>
+                                    <MenuItem value="reference">Tài liệu tham khảo</MenuItem>
+                                    <MenuItem value="curriculum">Giáo trình</MenuItem>
+                                    <MenuItem value="exam">Đề thi</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Danh mục</InputLabel>
+                                <Select
+                                    value={editForm.category}
+                                    label="Danh mục"
+                                    onChange={(e) => handleFormChange('category', e.target.value)}
+                                >
+                                    <MenuItem value="curriculum">Giáo trình</MenuItem>
+                                    <MenuItem value="lecture">Bài giảng</MenuItem>
+                                    <MenuItem value="exercise">Bài tập</MenuItem>
+                                    <MenuItem value="reference">Tài liệu tham khảo</MenuItem>
+                                    <MenuItem value="exam">Đề thi</MenuItem>
+                                    <MenuItem value="guide">Hướng dẫn</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Mô tả"
+                                multiline
+                                rows={4}
+                                value={editForm.description}
+                                onChange={(e) => handleFormChange('description', e.target.value)}
+                                placeholder="Mô tả nội dung tài liệu..."
+                            />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                            <TextField
+                                fullWidth
+                                label="Tags (phân cách bằng dấu phẩy)"
+                                value={editForm.tags}
+                                onChange={(e) => handleFormChange('tags', e.target.value)}
+                                placeholder="ví dụ: java, oop, programming, exercise"
+                                helperText="Các từ khóa giúp tìm kiếm tài liệu dễ dàng hơn"
+                            />
+                        </Grid>
+                        
+                        <Grid item xs={12}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={editForm.isPublished}
+                                        onChange={(e) => handleFormChange('isPublished', e.target.checked)}
+                                        color="primary"
+                                    />
+                                }
+                                label="Xuất bản tài liệu (sinh viên có thể xem)"
+                            />
+                        </Grid>
+                        
+                        {/* File Info Display */}
+                        <Grid item xs={12}>
+                            <Box sx={{ 
+                                p: 2, 
+                                bgcolor: 'grey.50', 
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'grey.200'
+                            }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                    📎 Thông tin file gốc
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                            Tên file:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {document.originalName || 'document.' + document.fileType}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                            Kích thước:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {(document.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                            Loại file:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {document.fileType?.toUpperCase()} - {document.mimeType}
+                                        </Typography>
+                                    </Grid>
+                                    <Grid item xs={6}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                            Ngày tải lên:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {new Date(document.createdAt).toLocaleString('vi-VN')}
+                                        </Typography>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                
+                <DialogActions sx={{ p: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <Box>
+                            <Typography variant="caption" color="text.secondary">
+                                * Các trường bắt buộc
+                            </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button 
+                                onClick={() => setEditDialogOpen(false)}
+                                variant="outlined"
+                                startIcon={<CancelIcon />}
+                            >
+                                Hủy
+                            </Button>
+                            <Button 
+                                onClick={handleSaveChanges}
+                                variant="contained"
+                                startIcon={<SaveIcon />}
+                                disabled={!editForm.title.trim()}
+                            >
+                                Lưu thay đổi
+                            </Button>
+                        </Box>
+                    </Box>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

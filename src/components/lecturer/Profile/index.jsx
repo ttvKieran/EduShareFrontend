@@ -565,16 +565,16 @@ const LecturerProfile = () => {
                     <Tab label="Thông tin cá nhân" icon={<PersonIcon />} iconPosition="start" />
                     <Tab label="Thông tin nghề nghiệp" icon={<WorkIcon />} iconPosition="start" />
                     <Tab label="Liên hệ & Mạng xã hội" icon={<EmailIcon />} iconPosition="start" />
-                    <Tab label="Cài đặt tài khoản" icon={<SettingsIcon />} iconPosition="start" />
+                    {/* <Tab label="Cài đặt tài khoản" icon={<SettingsIcon />} iconPosition="start" /> */}
                     <Tab label="Bảo mật" icon={<SecurityIcon />} iconPosition="start" />
-                    <Tab label="Hoạt động & Thành tích" icon={<EmojiEventsIcon />} iconPosition="start" />
+                    {/* <Tab label="Hoạt động & Thành tích" icon={<EmojiEventsIcon />} iconPosition="start" /> */}
                 </Tabs>
             </Paper>
 
             {/* Tab Content */}
             <TabPanel value={tabValue} index={0}>
                 <Grid container spacing={3}>
-                    <Grid item xs={12} md={8}>
+                    <Grid item xs={12} md={8} sx={{width: '100%'}}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
@@ -630,7 +630,7 @@ const LecturerProfile = () => {
                         </Card>
                     </Grid>
                     
-                    <Grid item xs={12} md={4}>
+                    {/* <Grid item xs={12} md={4}>
                         <Card sx={{ mb: 2 }}>
                             <CardContent>
                                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -668,7 +668,7 @@ const LecturerProfile = () => {
                                 </List>
                             </CardContent>
                         </Card>
-                    </Grid>
+                    </Grid> */}
                 </Grid>
             </TabPanel>
 
@@ -752,10 +752,10 @@ const LecturerProfile = () => {
             </TabPanel>
 
             <TabPanel value={tabValue} index={2}>
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
-                        <Card>
-                            <CardContent>
+                <Grid container spacing={2}>
+                    <Grid item xs={12} md={6} sx={{width: '49%'}}>
+                        <Card sx={{width: '100%'}}>
+                            <CardContent sx={{mb: 3}}>
                                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
                                     Thông tin liên hệ
                                 </Typography>
@@ -784,13 +784,14 @@ const LecturerProfile = () => {
                                     label="SĐT khẩn cấp"
                                     field="emergencyPhone"
                                     icon={<PhoneIcon />}
+                                    
                                 />
                             </CardContent>
                         </Card>
                     </Grid>
                     
-                    <Grid item xs={12} md={6}>
-                        <Card>
+                    <Grid item xs={12} md={6} sx={{width: '49%'}}>
+                        <Card sx={{width: '100%'}}>
                             <CardContent>
                                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
                                     Mạng xã hội & Nghiên cứu
@@ -853,7 +854,7 @@ const LecturerProfile = () => {
                 </Grid>
             </TabPanel>
 
-            <TabPanel value={tabValue} index={3}>
+            {/* <TabPanel value={tabValue} index={3}>
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                         <Card>
@@ -972,9 +973,9 @@ const LecturerProfile = () => {
                         </Card>
                     </Grid>
                 </Grid>
-            </TabPanel>
+            </TabPanel> */}
 
-            <TabPanel value={tabValue} index={4}>
+            <TabPanel value={tabValue} index={3}>
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                         <Card>
@@ -992,6 +993,7 @@ const LecturerProfile = () => {
                                     startIcon={<LockIcon />}
                                     onClick={() => setChangePasswordDialog(true)}
                                     fullWidth
+                                    sx={{mb: 2}}
                                 >
                                     Đổi mật khẩu
                                 </Button>
@@ -1002,12 +1004,12 @@ const LecturerProfile = () => {
                     <Grid item xs={12} md={6}>
                         <Card>
                             <CardContent>
-                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
                                     Cài đặt riêng tư
                                 </Typography>
                                 
                                 <Stack spacing={2}>
-                                    <FormControlLabel
+                                    {/* <FormControlLabel
                                         control={
                                             <Switch
                                                 checked={profileData.settings.privacy.showEmail}
@@ -1021,7 +1023,7 @@ const LecturerProfile = () => {
                                             />
                                         }
                                         label="Hiển thị email với sinh viên"
-                                    />
+                                    /> */}
                                     
                                     <FormControlLabel
                                         control={
@@ -1077,7 +1079,7 @@ const LecturerProfile = () => {
                 </Grid>
             </TabPanel>
 
-            <TabPanel value={tabValue} index={5}>
+            {/* <TabPanel value={tabValue} index={5}>
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={8}>
                         <Card sx={{ mb: 3 }}>
@@ -1184,7 +1186,7 @@ const LecturerProfile = () => {
                         </Card>
                     </Grid>
                 </Grid>
-            </TabPanel>
+            </TabPanel> */}
 
             {/* Change Password Dialog */}
             <Dialog
@@ -1199,7 +1201,7 @@ const LecturerProfile = () => {
                         Đổi mật khẩu
                     </Box>
                 </DialogTitle>
-                <DialogContent>
+                <DialogContent >
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             fullWidth
