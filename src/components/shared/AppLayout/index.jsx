@@ -217,7 +217,7 @@ const StudentCourseSelection = () => {
     const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
     const [profileAnchorEl, setProfileAnchorEl] = useState(null);
     const [quickAccessAnchorEl, setQuickAccessAnchorEl] = useState(null);
-    const [drawerOpen, setDrawerOpen] = useState(true);
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState([]);
@@ -229,6 +229,12 @@ const StudentCourseSelection = () => {
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     const navigate = useNavigate();
+
+    const truncateContent = (content, maxLength = 150) => {
+        if (!content) return '';
+        if (content.length <= maxLength) return content;
+        return content.substring(0, maxLength) + '...';
+    };
 
     // Mock data cho thông báo trong topbar
     const mockNotifications = [
@@ -1352,7 +1358,7 @@ const StudentCourseSelection = () => {
                             </Search>
 
                             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
-                                <Tooltip title="Truy cập nhanh">
+                                {/* <Tooltip title="Truy cập nhanh">
                                     <IconButton
                                         size="small"
                                         onClick={handleQuickAccessClick}
@@ -1360,9 +1366,9 @@ const StudentCourseSelection = () => {
                                     >
                                         <MenuBook />
                                     </IconButton>
-                                </Tooltip>
+                                </Tooltip> */}
 
-                                <Tooltip title="Tài liệu đã bookmark">
+                                {/* <Tooltip title="Tài liệu đã bookmark">
                                     <IconButton size="small" sx={{ color: '#666' }}>
                                         <Bookmark />
                                     </IconButton>
@@ -1372,7 +1378,7 @@ const StudentCourseSelection = () => {
                                     <IconButton size="small" sx={{ color: '#666' }}>
                                         <History />
                                     </IconButton>
-                                </Tooltip>
+                                </Tooltip> */}
                             </Box>
                         </Box>
 
@@ -1471,8 +1477,9 @@ const StudentCourseSelection = () => {
                                                 whiteSpace: 'nowrap',
                                                 mb: 0.5
                                             }}
+                                             dangerouslySetInnerHTML={{ __html: truncateContent(notification.content) }}
                                         >
-                                            {notification.courseName || notification.content.substring(0, 50) + '...'}
+                                            {/* {notification.courseName || notification.content.substring(0, 50) + '...'} */}
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: '#999', fontSize: '0.7rem' }}>
                                             {formatTimeAgo(notification.createdAt)}
@@ -1528,9 +1535,9 @@ const StudentCourseSelection = () => {
                         open={Boolean(profileAnchorEl)}
                         onClose={handleClose}
                     >
-                        <MenuItem onClick={handleClose}>Thông tin cá nhân</MenuItem>
-                        <MenuItem onClick={handleClose}>Lịch sử tải</MenuItem>
-                        <MenuItem onClick={handleClose}>Cài đặt</MenuItem>
+                        <MenuItem onClick={() => {navigate('/profile')}}>Thông tin cá nhân</MenuItem>
+                        <MenuItem onClick={() => {navigate('/notifications')}}>Thông báo</MenuItem>
+                        <MenuItem onClick={() => {navigate('/courses')}}>Môn học</MenuItem>
                         <Divider />
                         <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
                     </Menu>

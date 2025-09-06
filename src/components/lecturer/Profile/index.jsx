@@ -535,7 +535,7 @@ const LecturerProfile = () => {
                             </Typography>
                         </Grid>
 
-                        <Grid item>
+                        {/* <Grid item>
                             <Grid container spacing={2}>
                                 <Grid item xs={6} md={12}>
                                     <Card sx={{ textAlign: 'center', p: 1.5 }}>
@@ -554,7 +554,7 @@ const LecturerProfile = () => {
                                     </Card>
                                 </Grid>
                             </Grid>
-                        </Grid>
+                        </Grid> */}
                     </Grid>
                 </CardContent>
             </Card>

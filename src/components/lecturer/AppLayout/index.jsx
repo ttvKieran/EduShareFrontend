@@ -221,12 +221,20 @@ const LecturerAppLayout = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState([]);
-    const { authenticatedFetch, user, logout } = useAuth();
+    const { authenticatedFetch, currentUser, logout } = useAuth();
 
     // State cho notification modal
     const [selectedNotification, setSelectedNotification] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const [notificationPagination, setNotificationPagination] = useState({
+            page: 1,
+            limit: 3,
+            total: 0,
+            pages: 0
+    });
+    const [error, setError] = useState(null);
 
     // State cho các submenu
     const [openCourses, setOpenCourses] = useState(false);
@@ -239,9 +247,9 @@ const LecturerAppLayout = () => {
 
     // Mock data cho giảng viên
     const lecturerInfo = {
-        name: user?.name || "PGS. Trần Văn Minh",
-        employeeId: user?.employeeCode || "GV001",
-        department: "Khoa Công nghệ Thông tin",
+        name: currentUser?.fullName || "PGS. Trần Văn Minh",
+        employeeId: currentUser?.userCode || "GV001",
+        department: currentUser?.department || "Khoa Công nghệ Thông tin",
         totalCourses: 5,
         totalStudents: 127,
         totalDocuments: 34
@@ -285,6 +293,40 @@ const LecturerAppLayout = () => {
             isRead: false
         }
     ];
+
+    // Fetch notifications với pagination
+    const fetchNotifications = async (page = 1, limit = 3) => {
+        try {
+            setLoading(true);
+            let api = `${API_BASE_URL}/lecturer/notifications`;
+            const response = await authenticatedFetch(
+                `${api}?page=${page}&limit=${limit}`
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch notifications");
+            }
+
+            const result = await response.json();
+            console.log(result.data.notifications);
+            if (result.success) {
+                setNotifications(result.data.notifications);
+                setNotificationPagination(result.data.pagination);
+            } else {
+                throw new Error(result.message || "Failed to load notifications");
+            }
+
+        } catch (error) {
+            console.error("Error fetching notifications:", error);
+            setError(error.message || "Có lỗi xảy ra khi tải thông báo");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [authenticatedFetch])
 
     // Lecturer menu items
     const courseManagementItems = [
@@ -335,6 +377,12 @@ const LecturerAppLayout = () => {
 
     const handleDocumentsClick = () => {
         setOpenDocuments(!openDocuments);
+    };
+
+    const truncateContent = (content, maxLength = 150) => {
+        if (!content) return '';
+        if (content.length <= maxLength) return content;
+        return content.substring(0, maxLength) + '...';
     };
 
     const handleStudentsClick = () => {
@@ -1167,7 +1215,7 @@ const LecturerAppLayout = () => {
                                 />
                             </Search>
 
-                            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+                            {/* <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
                                 <Tooltip title="Thao tác nhanh">
                                     <IconButton
                                         size="small"
@@ -1189,7 +1237,7 @@ const LecturerAppLayout = () => {
                                         <SendIcon />
                                     </IconButton>
                                 </Tooltip>
-                            </Box>
+                            </Box> */}
                         </Box>
 
                         {/* Right side - Stats và actions */}
@@ -1212,7 +1260,7 @@ const LecturerAppLayout = () => {
                             </Box>
 
                             <IconButton color="inherit" onClick={handleNotificationClick}>
-                                <Badge badgeContent={mockNotifications.filter(n => !n.isRead).length} color="error">
+                                <Badge badgeContent={notifications.filter(n => !n.isRead).length} color="error">
                                     <Notifications />
                                 </Badge>
                             </IconButton>
@@ -1246,11 +1294,11 @@ const LecturerAppLayout = () => {
                                 Thông báo
                             </Typography>
                             <Typography variant="caption" sx={{ color: '#666' }}>
-                                {mockNotifications.filter(n => !n.isRead).length} thông báo chưa đọc
+                                {notifications.filter(n => !n.isRead).length} thông báo chưa đọc
                             </Typography>
                         </Box>
                         
-                        {mockNotifications.slice(0, 3).map((notification, index) => (
+                        {notifications.slice(0, 3).map((notification, index) => (
                             <MenuItem 
                                 key={notification._id}
                                 onClick={() => handleNotificationItemClick(notification)}
@@ -1294,8 +1342,9 @@ const LecturerAppLayout = () => {
                                                 whiteSpace: 'nowrap',
                                                 mb: 0.5
                                             }}
+                                            dangerouslySetInnerHTML={{ __html: truncateContent(notification.content) }}
                                         >
-                                            {notification.courseName || notification.content.substring(0, 50) + '...'}
+                                            {/* {notification.courseName || notification.content.substring(0, 50) + '...'} */}
                                         </Typography>
                                         <Typography variant="caption" sx={{ color: '#999', fontSize: '0.7rem' }}>
                                             {formatTimeAgo(notification.createdAt)}
@@ -1354,8 +1403,8 @@ const LecturerAppLayout = () => {
                         <MenuItem onClick={() => { handleClose(); navigate('/lecturer/profile'); }}>
                             Thông tin cá nhân
                         </MenuItem>
-                        <MenuItem onClick={() => { handleClose(); navigate('/lecturer/settings'); }}>
-                            Cài đặt tài khoản
+                        <MenuItem onClick={() => { handleClose(); navigate('/lecturer/notifications'); }}>
+                            Thông báo
                         </MenuItem>
                         <MenuItem onClick={() => { handleClose(); navigate('/lecturer/reports/activity'); }}>
                             Báo cáo hoạt động

@@ -318,8 +318,9 @@ const CourseNotificationsPage = () => {
                             color: '#666',
                             fontStyle: 'italic'
                         }}
+                         dangerouslySetInnerHTML={{ __html: truncateContent(notification.content) }}
                     >
-                        {truncateContent(notification.content)}
+                        {/* {truncateContent(notification.content)} */}
                     </Typography>
 
                     <Divider sx={{ mb: 2 }} />
@@ -543,28 +544,7 @@ const CourseNotificationsPage = () => {
     return (
         <Container maxWidth="lg" sx={{ py: 4 }}>
             {/* Breadcrumbs */}
-            <Breadcrumbs sx={{ mb: 3 }}>
-                <Link
-                    color="inherit"
-                    onClick={() => navigate('/student')}
-                    sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                >
-                    <Home sx={{ mr: 0.5, fontSize: 16 }} />
-                    Trang chủ
-                </Link>
-                <Link
-                    color="inherit"
-                    onClick={() => navigate('/courses')}
-                    sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                >
-                    <School sx={{ mr: 0.5, fontSize: 16 }} />
-                    Môn học
-                </Link>
-                <Typography color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <NotificationsIcon sx={{ mr: 0.5, fontSize: 16 }} />
-                    Thông báo
-                </Typography>
-            </Breadcrumbs>
+            
 
             {/* Header Section */}
             {courseId &&

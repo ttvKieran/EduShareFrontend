@@ -79,13 +79,13 @@ function App() {
                 <Route path='courses/notifications' element={<CourseNotificationsLecturer />} />
                 <Route path='courses/:courseId' element={<CourseDetailLecturer />} />
                 <Route path='profile' element={<ProfileLecturer />} />
-                <Route path='notifications' element={<CourseNotificationsPage />} />
+                <Route path='notifications' element={<CourseNotificationsLecturer />} />
                 <Route path='reports/activity' element={<TeachingActivityReport />} />
                 <Route path='reports/analytics' element={<AccessAnalyticsReport />} />
                 <Route path='reports/study' element={<StudentPerformanceReport />} />
                 <Route path='reports/course/:id' element={<CourseReport /> } />                <Route path='reports/course/:id' element={<CourseReport /> } />
                 <Route path='reports/class/:id' element={<ClassReport /> } />
-                <Route path='help' element={<LecturerHelp /> } />
+                <Route path='help' element={<Help /> } />
 
               </Route>
 

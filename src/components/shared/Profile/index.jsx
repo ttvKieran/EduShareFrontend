@@ -232,7 +232,7 @@ const StudentProfile = () => {
           </Paper>
 
           {/* Hoạt động gần đây */}
-          <Paper elevation={2} sx={{ p: 3, borderRadius: '5px' }}>
+          {/* <Paper elevation={2} sx={{ p: 3, borderRadius: '5px' }}>
             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: '#2c3e50' }}>
               Hoạt động gần đây
             </Typography>
@@ -265,7 +265,7 @@ const StudentProfile = () => {
                 </Box>
               ))}
             </List>
-          </Paper>
+          </Paper> */}
         {/* </Grid> */}
       {/* </Grid> */}
 

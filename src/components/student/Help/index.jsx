@@ -129,7 +129,7 @@ const StudentHelpPage = () => {
             color: '#212529',
             mb: 2
           }}>
-            Trợ giúp sinh viên
+            Trợ giúp
           </Typography>
           <Typography variant="h6" sx={{ 
             color: '#6c757d',

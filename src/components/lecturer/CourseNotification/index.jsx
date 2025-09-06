@@ -668,7 +668,8 @@ const CourseNotificationsPage = ({ classId }) => {
 
                 {!loading && !error && notifications.length > 0 && (
                     <>
-                        <Stack spacing={0}>
+                        
+                        <Stack spacing={0} sx={{mt: courseId ? "0" : "30px"}}>
                             {notifications.map((notification) => (
                                 <NotificationCard
                                     key={notification._id}
