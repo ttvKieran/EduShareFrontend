@@ -333,6 +333,9 @@ export default function LoginPage() {
                         }}
                       />
 
+                      <Typography variant='body2' sx={{m: 0}}>SV: CNV@stu.ptit.edu.vn MK: 123</Typography>
+                      <Typography variant='body2' sx={{m: 0}}>GV: nguyenvana@ptit.edu.vn MK: 123</Typography>
+
                       <Box display="flex" justifyContent="space-between" alignItems="center">
                         <FormControlLabel
                           control={
