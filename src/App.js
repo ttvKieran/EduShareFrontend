@@ -7,7 +7,10 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { useEffect } from 'react';
+
 // Existing imports...
+import AccessDeniedPage from './components/shared/AccessDeniedPage/index.jsx';
 import Home from './components/student/Home/index.jsx';
 import Courses from './components/student/Courses';
 import Login from './components/shared/Login/index.jsx';
@@ -30,6 +33,8 @@ import ClassDetailLecturer from './components/lecturer/ClassDetail/index.jsx';
 import CoursesLecturer from './components/lecturer/Courses';
 import CourseDetailLecturer from './components/lecturer/CourseDetail';
 import ProfileLecturer from './components/lecturer/Profile';
+import CourseNotificationsLecturer from './components/lecturer/CourseNotification';
+import CourseReport from './components/lecturer/CourseReport';
 
 // Admin
 
@@ -38,6 +43,11 @@ import { AuthProvider } from './contexts/AuthContext';
 import { FavoriteProvider } from './contexts/FavoriteContext';
 import MyDocuments from './components/lecturer/MyDocuments/index.jsx';
 import DocumentUpload from './components/lecturer/DocumentUpload/index.jsx';
+import TeachingActivityReport from './components/lecturer/TeachingActivityReport/index.jsx';
+import AccessAnalyticsReport from './components/lecturer/AccessAnalyticsReport/index.jsx';
+import StudentPerformanceReport from './components/lecturer/StudentPerformanceReport/index.jsx';
+import ClassReport from './components/lecturer/ClassReport/index.jsx';
+import LecturerHelp from './components/lecturer/LecturerHelp/index.jsx';
 
 function App() {
   return (
@@ -48,31 +58,41 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/access-denied" element={<AccessDeniedPage />} />
               
               <Route
                 path="/lecturer"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="lecturer">
                     <AppLayoutLecturer />
                   </ProtectedRoute>
                 }
               >
                 <Route index element={<DashboardLecturer />} />
                 <Route path='classes' element={<ClassesLecturer />} />
+                <Route path='classes/classesOfCourse/:courseId' element={<ClassesLecturer />} />
                 <Route path='classes/:classId' element={<ClassDetailLecturer />}></Route>
                 <Route path='schedule' element={<ScheduleLecturer />} />
                 <Route path='documents' element={<MyDocuments />} />
                 <Route path='documents/upload' element={<DocumentUpload />} />
                 <Route path='courses' element={<CoursesLecturer />} />
+                <Route path='courses/notifications' element={<CourseNotificationsLecturer />} />
                 <Route path='courses/:courseId' element={<CourseDetailLecturer />} />
                 <Route path='profile' element={<ProfileLecturer />} />
                 <Route path='notifications' element={<CourseNotificationsPage />} />
+                <Route path='reports/activity' element={<TeachingActivityReport />} />
+                <Route path='reports/analytics' element={<AccessAnalyticsReport />} />
+                <Route path='reports/study' element={<StudentPerformanceReport />} />
+                <Route path='reports/course/:id' element={<CourseReport /> } />                <Route path='reports/course/:id' element={<CourseReport /> } />
+                <Route path='reports/class/:id' element={<ClassReport /> } />
+                <Route path='help' element={<LecturerHelp /> } />
+
               </Route>
 
               <Route
                 path="/"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="student">
                     <AppLayout />
                   </ProtectedRoute>
                 }

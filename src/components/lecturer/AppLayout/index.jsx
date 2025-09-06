@@ -75,7 +75,7 @@ import {
     QuestionAnswer,
     Report,
     Visibility,
-    Send as SendIcon
+    Send as SendIcon,
 } from '@mui/icons-material';
 import { Outlet } from 'react-router-dom';
 import { useNavigate } from "react-router-dom";
@@ -156,7 +156,7 @@ const MiniToggleButton = styled(Fab)(({ theme }) => ({
     boxShadow: '0 4px 12px rgba(25, 118, 210, 0.4)',
 }));
 
-const drawerWidth = 280;
+const drawerWidth = 270;
 const miniDrawerWidth = 70;
 
 const StyledDrawer = styled(Drawer)(({ theme }) => ({
@@ -217,7 +217,7 @@ const LecturerAppLayout = () => {
     const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
     const [profileAnchorEl, setProfileAnchorEl] = useState(null);
     const [quickActionAnchorEl, setQuickActionAnchorEl] = useState(null);
-    const [drawerOpen, setDrawerOpen] = useState(true);
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [notifications, setNotifications] = useState([]);
@@ -291,7 +291,7 @@ const LecturerAppLayout = () => {
         { name: 'Danh sách lớp học', icon: <Class />, path: 'classes', count: lecturerInfo.totalCourses },
         { name: 'Danh sách môn học', icon: <School />, path: 'courses'},
         // { name: 'Tạo môn học mới', icon: <Add />, path: 'courses/create' },
-        { name: 'Lịch giảng dạy', icon: <Schedule />, path: 'schedule' },
+        // { name: 'Lịch giảng dạy', icon: <Schedule />, path: 'schedule' },
         // { name: 'Phân công giảng dạy', icon: <Assignment />, path: 'assignments' }
     ];
 
@@ -312,7 +312,7 @@ const LecturerAppLayout = () => {
     const reportItems = [
         { name: 'Báo cáo hoạt động', icon: <Assessment />, path: 'reports/activity' },
         { name: 'Thống kê truy cập', icon: <Analytics />, path: 'reports/analytics' },
-        { name: 'Báo cáo học tập', icon: <Report />, path: 'reports/study' }
+        // { name: 'Báo cáo học tập', icon: <Report />, path: 'reports/study' }
     ];
 
     // Event handlers
@@ -733,7 +733,7 @@ const LecturerAppLayout = () => {
                             boxShadow: 2,
                             borderRadius: 0,
                             marginTop: 0,
-                            height: '100vh',
+                            height: '125vh',
                             overflowY: 'auto',
                         },
                     }}
@@ -793,248 +793,37 @@ const LecturerAppLayout = () => {
 
                             <Divider sx={{ my: 1 }} />
 
-                            {/* Course Management */}
-                            <ListItem disablePadding>
-                                <ListItemButton 
-                                    onClick={handleCoursesClick} 
-                                    sx={{ 
-                                        borderRadius: 1, 
-                                        mx: 1, 
-                                        my: 0.5, 
-                                        transition: 'all 0.2s ease-in-out', 
-                                        '&:hover': { 
-                                            backgroundColor: '#f5f5f5', 
-                                            transform: 'translateX(2px)' 
-                                        } 
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 40 }}>
-                                        <School />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary="Quản lý Môn học"
-                                        primaryTypographyProps={{ fontSize: '0.9rem' }}
-                                    />
-                                    {/* <Chip 
-                                        label={lecturerInfo.totalCourses} 
-                                        size="small" 
-                                        color="primary" 
-                                        sx={{ fontSize: '0.7rem', mr: 1 }} 
-                                    /> */}
-                                    {openCourses ? <ExpandLess /> : <ExpandMore />}
-                                </ListItemButton>
-                            </ListItem>
+                            <NavItem
+                                item="classes"
+                                icon={<Class />}
+                                text="Danh sách lớp học"
+                                onClick={handleClick}
+                                mini={false}
+                            />
 
-                            <Collapse in={openCourses} timeout="auto" unmountOnExit>
-                                <List component="div" disablePadding>
-                                    {courseManagementItems.map((item, index) => (
-                                        <ListItem key={index} disablePadding>
-                                            <ListItemButton
-                                                selected={selectedItem === item.path}
-                                                sx={{
-                                                    pl: 6,
-                                                    borderRadius: 1,
-                                                    mx: 1,
-                                                    my: 0.25,
-                                                    transition: 'all 0.2s ease-in-out',
-                                                    '&.Mui-selected': {
-                                                        backgroundColor: '#e3f2fd',
-                                                        color: '#1976d2',
-                                                    },
-                                                    '&:hover': {
-                                                        backgroundColor: '#f5f5f5',
-                                                        transform: 'translateX(4px)'
-                                                    }
-                                                }}
-                                                onClick={() => handleClick(item.path)}
-                                            >
-                                                <ListItemIcon sx={{
-                                                    minWidth: 35,
-                                                    color: selectedItem === item.path ? '#1976d2' : 'inherit'
-                                                }}>
-                                                    {item.icon}
-                                                </ListItemIcon>
-                                                <ListItemText
-                                                    primary={item.name}
-                                                    primaryTypographyProps={{
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: selectedItem === item.path ? 600 : 400
-                                                    }}
-                                                />
-                                                {/* {item.count && (
-                                                    <Chip
-                                                        label={item.count}
-                                                        size="small"
-                                                        sx={{ fontSize: '0.7rem', height: 18 }}
-                                                    />
-                                                )} */}
-                                            </ListItemButton>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            </Collapse>
+                            <NavItem
+                                item="courses"
+                                icon={<School />}
+                                text="Danh sách môn học"
+                                onClick={handleClick}
+                                mini={false}
+                            />
 
-                            {/* Document Management */}
-                            <ListItem disablePadding>
-                                <ListItemButton 
-                                    onClick={handleDocumentsClick} 
-                                    sx={{ 
-                                        borderRadius: 1, 
-                                        mx: 1, 
-                                        my: 0.5, 
-                                        transition: 'all 0.2s ease-in-out', 
-                                        '&:hover': { 
-                                            backgroundColor: '#f5f5f5', 
-                                            transform: 'translateX(2px)' 
-                                        } 
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 40 }}>
-                                        <LibraryBooks />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary="Quản lý Tài liệu"
-                                        primaryTypographyProps={{ fontSize: '0.9rem' }}
-                                    />
-                                    {/* <Chip 
-                                        label={lecturerInfo.totalDocuments} 
-                                        size="small" 
-                                        color="success" 
-                                        sx={{ fontSize: '0.7rem', mr: 1 }} 
-                                    /> */}
-                                    {openDocuments ? <ExpandLess /> : <ExpandMore />}
-                                </ListItemButton>
-                            </ListItem>
+                            {/* <NavItem
+                                item="schedule"
+                                icon={<Schedule />}
+                                text="Lịch giảng dạy"
+                                onClick={handleClick}
+                                mini={false}
+                            /> */}
 
-                            <Collapse in={openDocuments} timeout="auto" unmountOnExit>
-                                <List component="div" disablePadding>
-                                    {documentManagementItems.map((item, index) => (
-                                        <ListItem key={index} disablePadding>
-                                            <ListItemButton
-                                                selected={selectedItem === item.path}
-                                                sx={{
-                                                    pl: 6,
-                                                    borderRadius: 1,
-                                                    mx: 1,
-                                                    my: 0.25,
-                                                    transition: 'all 0.2s ease-in-out',
-                                                    '&.Mui-selected': {
-                                                        backgroundColor: '#e3f2fd',
-                                                        color: '#1976d2',
-                                                    },
-                                                    '&:hover': {
-                                                        backgroundColor: '#f5f5f5',
-                                                        transform: 'translateX(4px)'
-                                                    }
-                                                }}
-                                                onClick={() => handleClick(item.path)}
-                                            >
-                                                <ListItemIcon sx={{
-                                                    minWidth: 35,
-                                                    color: selectedItem === item.path ? '#1976d2' : 'inherit'
-                                                }}>
-                                                    {item.icon}
-                                                </ListItemIcon>
-                                                <ListItemText
-                                                    primary={item.name}
-                                                    primaryTypographyProps={{
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: selectedItem === item.path ? 600 : 400
-                                                    }}
-                                                />
-                                                {/* {item.count && (
-                                                    <Chip
-                                                        label={item.count}
-                                                        size="small"
-                                                        sx={{ fontSize: '0.7rem', height: 18 }}
-                                                    />
-                                                )} */}
-                                            </ListItemButton>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            </Collapse>
-
-                            {/* Student Management */}
-                            {/* <ListItem disablePadding>
-                                <ListItemButton 
-                                    onClick={handleStudentsClick} 
-                                    sx={{ 
-                                        borderRadius: 1, 
-                                        mx: 1, 
-                                        my: 0.5, 
-                                        transition: 'all 0.2s ease-in-out', 
-                                        '&:hover': { 
-                                            backgroundColor: '#f5f5f5', 
-                                            transform: 'translateX(2px)' 
-                                        } 
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 40 }}>
-                                        <PeopleAlt />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary="Quản lý Sinh viên"
-                                        primaryTypographyProps={{ fontSize: '0.9rem' }}
-                                    />
-                                    <Chip 
-                                        label={lecturerInfo.totalStudents} 
-                                        size="small" 
-                                        color="warning" 
-                                        sx={{ fontSize: '0.7rem', mr: 1 }} 
-                                    />
-                                    {openStudents ? <ExpandLess /> : <ExpandMore />}
-                                </ListItemButton>
-                            </ListItem>
-
-                            <Collapse in={openStudents} timeout="auto" unmountOnExit>
-                                <List component="div" disablePadding>
-                                    {studentManagementItems.map((item, index) => (
-                                        <ListItem key={index} disablePadding>
-                                            <ListItemButton
-                                                selected={selectedItem === item.path}
-                                                sx={{
-                                                    pl: 6,
-                                                    borderRadius: 1,
-                                                    mx: 1,
-                                                    my: 0.25,
-                                                    transition: 'all 0.2s ease-in-out',
-                                                    '&.Mui-selected': {
-                                                        backgroundColor: '#e3f2fd',
-                                                        color: '#1976d2',
-                                                    },
-                                                    '&:hover': {
-                                                        backgroundColor: '#f5f5f5',
-                                                        transform: 'translateX(4px)'
-                                                    }
-                                                }}
-                                                onClick={() => handleClick(item.path)}
-                                            >
-                                                <ListItemIcon sx={{
-                                                    minWidth: 35,
-                                                    color: selectedItem === item.path ? '#1976d2' : 'inherit'
-                                                }}>
-                                                    {item.icon}
-                                                </ListItemIcon>
-                                                <ListItemText
-                                                    primary={item.name}
-                                                    primaryTypographyProps={{
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: selectedItem === item.path ? 600 : 400
-                                                    }}
-                                                />
-                                                {item.count && (
-                                                    <Chip
-                                                        label={item.count}
-                                                        size="small"
-                                                        sx={{ fontSize: '0.7rem', height: 18 }}
-                                                    />
-                                                )}
-                                            </ListItemButton>
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            </Collapse> */}
+                            <NavItem
+                                item="documents"
+                                icon={<LibraryBooks />}
+                                text="Tài liệu của tôi"
+                                onClick={handleClick}
+                                mini={false}
+                            />
 
                             {/* Reports */}
                             <ListItem disablePadding>
@@ -1108,20 +897,28 @@ const LecturerAppLayout = () => {
 
                             {/* Settings & Help */}
                             <NavItem
+                                item="notifications"
+                                icon={<Notifications />}
+                                text="Thông báo"
+                                onClick={handleClick}
+                                mini={false}
+                            />
+
+                            <NavItem
                                 item="profile"
                                 icon={<Person />}
                                 text="Thông tin cá nhân"
                                 onClick={handleClick}
                                 mini={false}
                             />
-
+{/* 
                             <NavItem
                                 item="settings"
                                 icon={<Settings />}
                                 text="Cài đặt"
                                 onClick={handleClick}
                                 mini={false}
-                            />
+                            /> */}
 
                             <NavItem
                                 item="help"
@@ -1148,7 +945,7 @@ const LecturerAppLayout = () => {
                             boxShadow: 2,
                             borderRadius: 0,
                             marginTop: 0,
-                            height: '100vh',
+                            height: '125vh',
                             overflowY: 'auto',
                             overflowX: 'hidden',
                         },
@@ -1179,12 +976,28 @@ const LecturerAppLayout = () => {
                             />
 
                             <NavItem
-                                item="courses"
-                                icon={<School />}
-                                text="Môn học"
+                                item="classes"
+                                icon={<Class />}
+                                text="Danh sách lớp học"
                                 onClick={handleClick}
                                 mini={true}
                             />
+
+                            <NavItem
+                                item="courses"
+                                icon={<School />}
+                                text="Danh sách môn học"
+                                onClick={handleClick}
+                                mini={true}
+                            />
+
+                            {/* <NavItem
+                                item="schedule"
+                                icon={<Schedule />}
+                                text="Lịch giảng dạy"
+                                onClick={handleClick}
+                                mini={true}
+                            /> */}
 
                             <NavItem
                                 item="documents"
@@ -1203,7 +1016,7 @@ const LecturerAppLayout = () => {
                             /> */}
 
                             <NavItem
-                                item="reports"
+                                item="reports/activity"
                                 icon={<Assessment />}
                                 text="Báo cáo"
                                 onClick={handleClick}
@@ -1211,6 +1024,14 @@ const LecturerAppLayout = () => {
                             />
 
                             <Divider sx={{ my: 1 }} />
+
+                            <NavItem
+                                item="notifications"
+                                icon={<Notifications />}
+                                text="Thông báo"
+                                onClick={handleClick}
+                                mini={true}
+                            />
 
                             <NavItem
                                 item="profile"
@@ -1247,7 +1068,7 @@ const LecturerAppLayout = () => {
                         width: drawerWidth,
                         backgroundColor: '#fff',
                         marginTop: '64px',
-                        height: 'calc(100vh - 64px)',
+                        height: '120vh',
                     },
                 }}
             >

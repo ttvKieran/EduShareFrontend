@@ -90,17 +90,19 @@ import {
   PersonRemove as PersonRemoveIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import StudentsDialog from '../StudentsDialog';
 import API_BASE_URL from '../../../configs/system';
 
 const CourseManagement = () => {
   const { user, authenticatedFetch } = useAuth();
   const navigate = useNavigate();
+  const { courseId } = useParams();
 
   console.log("refresh main");
   
   // States
+  const [course, setCourse] = useState(null);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -211,6 +213,30 @@ const CourseManagement = () => {
       setLoading(false);
     }
   }, [authenticatedFetch]);
+
+  // Fetch courses from API
+    const fetchCourse = async () => {
+        try {
+            const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/courses/${courseId}`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                setCourse(data.data);
+            } else {
+                throw new Error('Failed to fetch course');
+            }
+        } catch (error) {
+            console.error('Error fetching course:', error);
+            setError('Không thể tải môn học. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Load courses on component mount
+    useEffect(() => {
+        if(courseId) fetchCourse();
+    }, []);
 
   // Helper function to get day name from day number
   const getDayName = (dayOfWeek) => {
@@ -626,13 +652,13 @@ const CourseManagement = () => {
         >
           SV ({course.enrolledStudents})
         </Button>
-        <Button
+        {/* <Button
           size="small"
           startIcon={<AnalyticsIcon />}
-          onClick={() => navigate(`/lecturer/classes/${course.id}/analytics`)}
+          onClick={() => navigate(`/lecturer/reports/class/${course.id}`)}
         >
           Thống kê
-        </Button>
+        </Button> */}
       </CardActions>
     </Card>
   ));
@@ -702,16 +728,22 @@ const CourseManagement = () => {
       </Paper>
 
       {/* Refresh Button */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="outlined"
-          startIcon={<ScheduleIcon />}
-          onClick={fetchCourses}
-          disabled={loading}
-        >
-          Làm mới
-        </Button>
-      </Box>
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: courseId ? 'space-between' : 'flex-end', alignItems: 'center' }}>
+  {courseId && 
+  <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', ml: 1}}>
+      Lớp học của môn {course?.name}
+    </Typography>
+
+  }
+  <Button
+    variant="outlined"
+    startIcon={<ScheduleIcon />}
+    onClick={fetchCourses}
+    disabled={loading}
+  >
+    Làm mới
+  </Button>
+</Box>
 
       {/* Semesters */}
       {semesters.length > 0 ? (

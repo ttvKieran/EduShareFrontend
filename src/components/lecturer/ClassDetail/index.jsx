@@ -63,7 +63,9 @@ import {
   TimelineContent,
   TimelineDot,
   TimelineOppositeContent,
-  Skeleton
+  Skeleton,
+  CircularProgress,
+  Snackbar
 } from '@mui/material';
 import {
   Description,
@@ -162,16 +164,31 @@ const CourseDetail = () => {
 
   // Dialog states
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
+  const [createAnnouncementLoading, setCreateAnnouncementLoading] = useState(false);
   const [createAssignmentOpen, setCreateAssignmentOpen] = useState(false);
   const [uploadDocumentOpen, setUploadDocumentOpen] = useState(false);
   const [editCourseOpen, setEditCourseOpen] = useState(false);
+
+  // Notification states
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   // Form states
   const [announcementForm, setAnnouncementForm] = useState({
     title: '',
     content: '',
-    priority: 'normal',
+    priority: 'thường',
+    type: 'general',
     sendEmail: true
+  });
+
+  // Form validation
+  const [formErrors, setFormErrors] = useState({
+    title: '',
+    content: ''
   });
 
   // Fetch course data
@@ -189,12 +206,15 @@ const CourseDetail = () => {
           setStudents(foundCourse.studentIds || []);
         } else {
           console.error('Course not found');
+          showNotification('Không tìm thấy lớp học', 'error');
         }
       } else {
         console.error('Failed to fetch courses');
+        showNotification('Lỗi khi tải thông tin lớp học', 'error');
       }
     } catch (error) {
       console.error('Error fetching course data:', error);
+      showNotification('Có lỗi xảy ra khi tải dữ liệu', 'error');
     } finally {
       setLoading(false);
     }
@@ -241,6 +261,51 @@ const CourseDetail = () => {
   }, [courseId]);
 
   // Helper functions
+  const showNotification = (message, severity = 'success') => {
+    setNotification({
+      open: true,
+      message,
+      severity
+    });
+  };
+
+  const hideNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
+
+  const validateAnnouncementForm = () => {
+    const errors = {};
+    
+    if (!announcementForm.title.trim()) {
+      errors.title = 'Tiêu đề là bắt buộc';
+    } else if (announcementForm.title.length > 200) {
+      errors.title = 'Tiêu đề không được quá 200 ký tự';
+    }
+
+    if (!announcementForm.content.trim()) {
+      errors.content = 'Nội dung là bắt buộc';
+    } else if (announcementForm.content.length < 10) {
+      errors.content = 'Nội dung phải có ít nhất 10 ký tự';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const resetAnnouncementForm = () => {
+    setAnnouncementForm({
+      title: '',
+      content: '',
+      priority: 'thường',
+      type: 'general',
+      sendEmail: true
+    });
+    setFormErrors({
+      title: '',
+      content: ''
+    });
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active': return 'success';
@@ -302,12 +367,71 @@ const CourseDetail = () => {
   };
 
   // Event handlers
-  const handleCreateAnnouncement = () => {
-    console.log('Creating announcement:', announcementForm);
-    setCreateAnnouncementOpen(false);
-    setAnnouncementForm({ title: '', content: '', priority: 'normal', sendEmail: true });
-    // Refresh announcements after creating
-    fetchAnnouncements();
+  const handleCreateAnnouncement = async () => {
+    // Validate form
+    if (!validateAnnouncementForm()) {
+      showNotification('Vui lòng kiểm tra lại thông tin', 'error');
+      return;
+    }
+
+    try {
+      setCreateAnnouncementLoading(true);
+
+      // Prepare request body
+      const requestBody = {
+        title: announcementForm.title.trim(),
+        content: announcementForm.content.trim(),
+        priority: announcementForm.priority,
+        type: announcementForm.type,
+        classId: courseId,
+        // documentId can be null for general announcements
+        documentId: null
+      };
+
+      console.log('Creating announcement with data:', requestBody);
+
+      // Call API
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/notifications/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Success
+        showNotification('Thông báo đã được tạo thành công!', 'success');
+        
+        // Close dialog and reset form
+        setCreateAnnouncementOpen(false);
+        resetAnnouncementForm();
+        
+        // Refresh announcements list
+        await fetchAnnouncements();
+        
+        // Optional: Send email notification info
+        if (announcementForm.sendEmail) {
+          showNotification(
+            `Thông báo đã được gửi tới ${students.length} sinh viên`, 
+            'info'
+          );
+        }
+      } else {
+        // API returned error
+        const errorMessage = result.message || 'Có lỗi xảy ra khi tạo thông báo';
+        console.error('API Error:', result);
+        showNotification(errorMessage, 'error');
+      }
+    } catch (error) {
+      // Network or other errors
+      console.error('Error creating announcement:', error);
+      showNotification('Không thể kết nối tới server. Vui lòng thử lại.', 'error');
+    } finally {
+      setCreateAnnouncementLoading(false);
+    }
   };
 
   // Tab Panel Component
@@ -319,7 +443,7 @@ const CourseDetail = () => {
 
   // Course Overview Component
   const CourseOverview = () => (
-    <Grid container spacing={3} sx={{ display: 'flex', justifyContent: 'start' }}>
+    <Grid container spacing={3} sx={{ display: 'flex', justifyContent: 'space-between' }}>
       {/* Course Stats */}
       <Grid item sx={{ width: '100%' }}>
         <Card sx={{ border: 0 }}>
@@ -366,7 +490,7 @@ const CourseDetail = () => {
         </Card>
       </Grid>
 
-      <Grid item xs={4} sx={{ width: '76%' }}>
+      <Grid item xs={6} sx={{ minWidth: '600px' }}>
         {/* Schedule */}
         <Card sx={{ border: 0 }}>
           <CardContent sx={{ border: 0 }}>
@@ -387,7 +511,7 @@ const CourseDetail = () => {
         </Card>
       </Grid>
 
-      <Grid item xs={4} sx={{ border: 0, height: '24%' }}>
+      <Grid item xs={4} sx={{ border: 0, minWidth: '300px' }}>
         {/* Quick Actions */}
         <Card sx={{ border: 0 }}>
           <CardContent>
@@ -406,19 +530,12 @@ const CourseDetail = () => {
               >
                 Tạo thông báo
               </Button>
-              {/* <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<AssignmentIcon />}
-                onClick={() => setCreateAssignmentOpen(true)}
-              >
-                Tạo bài tập
-              </Button> */}
               <Button
                 variant="outlined"
                 fullWidth
                 startIcon={<UploadIcon />}
-                onClick={() => setUploadDocumentOpen(true)}
+                // onClick={() => setUploadDocumentOpen(true)}
+                onClick={() => setTabValue(2)}
               >
                 Tải tài liệu
               </Button>
@@ -471,6 +588,7 @@ const CourseDetail = () => {
       fileType: doc.fileType,
       fileSize: doc.fileSize,
       viewCount: doc.viewCount,
+      allowDownload: doc.allowDownload,
       downloadCount: doc.downloadCount,
       authors: doc.authors,
       createdAt: doc.createdAt,
@@ -515,6 +633,7 @@ const CourseDetail = () => {
     return (
       <DocumentList
         documents={transformedDocuments}
+        classId={classId}
         title="Tài liệu học tập"
         icon={MenuBookIcon}
         onPreview={handleDocumentPreview}
@@ -523,6 +642,7 @@ const CourseDetail = () => {
         onDelete={handleDocumentDelete}
         onTogglePublish={handleDocumentTogglePublish}
         onUpload={handleDocumentUpload}
+        onRefresh={fetchDocuments}
         searchPlaceholder="Tìm kiếm tài liệu trong môn học..."
         emptyStateMessage="Chưa có tài liệu nào trong môn học này"
         emptyStateDescription="Hãy tải lên tài liệu đầu tiên cho môn học này"
@@ -867,9 +987,6 @@ const CourseDetail = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            {/* <Button variant="outlined" startIcon={<PersonAddIcon />}>
-              Thêm sinh viên
-            </Button> */}
             <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportExcel}>
               Xuất danh sách
             </Button>
@@ -1011,17 +1128,6 @@ const CourseDetail = () => {
                   >
                     Lớp
                   </TableCell>
-                  {/* <TableCell
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      fontWeight: 600,
-                      textAlign: 'center',
-                      minWidth: 120
-                    }}
-                  >
-                    Thao tác
-                  </TableCell> */}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1116,46 +1222,6 @@ const CourseDetail = () => {
                               variant="outlined"
                             />
                           </TableCell>
-                          {/* <TableCell sx={{ textAlign: 'center' }}>
-                            <Tooltip title="Xem chi tiết">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log('View student details:', student);
-                                }}
-                              >
-                                <VisibilityIcon />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Gửi email">
-                              <IconButton
-                                size="small"
-                                color="info"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  console.log('Send email to:', student);
-                                }}
-                              >
-                                <EmailIcon />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Xóa khỏi lớp">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm(`Bạn có chắc muốn xóa ${student.fullName} khỏi lớp?`)) {
-                                    console.log('Remove student:', student);
-                                  }
-                                }}
-                              >
-                                <PersonRemoveIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell> */}
                         </TableRow>
                       );
                     })
@@ -1275,7 +1341,7 @@ const CourseDetail = () => {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
+          {/* <Button
             variant="outlined"
             startIcon={<EditIcon />}
             onClick={() => setEditCourseOpen(true)}
@@ -1287,13 +1353,13 @@ const CourseDetail = () => {
             startIcon={<SettingsIcon />}
           >
             Cài đặt
-          </Button>
-          <Button
+          </Button> */}
+          {/* <Button
             variant="outlined"
             startIcon={<AnalyticsIcon />}
           >
             Báo cáo
-          </Button>
+          </Button> */}
         </Box>
       </Box>
 
@@ -1333,7 +1399,12 @@ const CourseDetail = () => {
       {/* Create Announcement Dialog */}
       <Dialog
         open={createAnnouncementOpen}
-        onClose={() => setCreateAnnouncementOpen(false)}
+        onClose={() => {
+          if (!createAnnouncementLoading) {
+            setCreateAnnouncementOpen(false);
+            resetAnnouncementForm();
+          }
+        }}
         maxWidth="md"
         fullWidth
         PaperProps={{
@@ -1354,8 +1425,16 @@ const CourseDetail = () => {
                 label="Tiêu đề thông báo"
                 placeholder="Nhập tiêu đề thông báo..."
                 value={announcementForm.title}
-                onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                onChange={(e) => {
+                  setAnnouncementForm({ ...announcementForm, title: e.target.value });
+                  if (formErrors.title) {
+                    setFormErrors({ ...formErrors, title: '' });
+                  }
+                }}
                 required
+                error={!!formErrors.title}
+                helperText={formErrors.title}
+                disabled={createAnnouncementLoading}
               />
             </Grid>
 
@@ -1366,6 +1445,7 @@ const CourseDetail = () => {
                   value={announcementForm.priority}
                   label="Mức độ ưu tiên"
                   onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
+                  disabled={createAnnouncementLoading}
                 >
                   <MenuItem value="thấp">
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1387,6 +1467,25 @@ const CourseDetail = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Loại thông báo</InputLabel>
+                <Select
+                  value={announcementForm.type}
+                  label="Loại thông báo"
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, type: e.target.value })}
+                  disabled={createAnnouncementLoading}
+                >
+                  <MenuItem value="general">Thông báo chung</MenuItem>
+                  <MenuItem value="assignment">Bài tập</MenuItem>
+                  <MenuItem value="exam">Thi cử</MenuItem>
+                  <MenuItem value="document">Tài liệu</MenuItem>
+                  <MenuItem value="schedule">Lịch học</MenuItem>
+                  <MenuItem value="urgent">Khẩn cấp</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={12}>
               <Box sx={{ alignItems: 'center' }}>
                 <FormControlLabel
                   control={
@@ -1394,9 +1493,10 @@ const CourseDetail = () => {
                       checked={announcementForm.sendEmail}
                       onChange={(e) => setAnnouncementForm({ ...announcementForm, sendEmail: e.target.checked })}
                       color="primary"
+                      disabled={createAnnouncementLoading}
                     />
                   }
-                  label="Gửi email thông báo cho sinh viên"
+                  label={`Gửi email thông báo cho sinh viên (${students.length} sinh viên)`}
                 />
               </Box>
             </Grid>
@@ -1405,13 +1505,24 @@ const CourseDetail = () => {
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Nội dung thông báo *
               </Typography>
+              {formErrors.content && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {formErrors.content}
+                </Alert>
+              )}
               <Box sx={{ border: 0, width: '100%' }}>
                 <Editor
                   apiKey="2knowjdoqtj7pi51xfq4e0b9t6b82xiggwnfl5qvuimfnztf"
                   value={announcementForm.content}
-                  onEditorChange={(content) => setAnnouncementForm({ ...announcementForm, content })}
+                  onEditorChange={(content) => {
+                    setAnnouncementForm({ ...announcementForm, content });
+                    if (formErrors.content) {
+                      setFormErrors({ ...formErrors, content: '' });
+                    }
+                  }}
+                  disabled={createAnnouncementLoading}
                   init={{
-                    height: 500,
+                    height: 400,
                     width: 850,
                     menubar: true,
                     border: 0,
@@ -1438,13 +1549,16 @@ const CourseDetail = () => {
                       }
                     `,
                     language: 'vi',
+                    readonly: createAnnouncementLoading,
                     setup: function (editor) {
                       editor.on('init', function () {
                         editor.getContainer().style.transition = "border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out";
                       });
                       editor.on('focus', function () {
-                        editor.getContainer().style.borderColor = '#1976d2';
-                        editor.getContainer().style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.2)';
+                        if (!createAnnouncementLoading) {
+                          editor.getContainer().style.borderColor = '#1976d2';
+                          editor.getContainer().style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.2)';
+                        }
                       });
                       editor.on('blur', function () {
                         editor.getContainer().style.borderColor = '#ddd';
@@ -1464,40 +1578,52 @@ const CourseDetail = () => {
               <Typography variant="caption" color="text.secondary">
                 * Các trường bắt buộc
               </Typography>
+              {announcementForm.sendEmail && (
+                <Typography variant="caption" color="primary" sx={{ display: 'block' }}>
+                  📧 Thông báo sẽ được gửi tới {students.length} sinh viên
+                </Typography>
+              )}
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 onClick={() => {
                   setCreateAnnouncementOpen(false);
-                  setAnnouncementForm({ title: '', content: '', priority: 'normal', sendEmail: true });
+                  resetAnnouncementForm();
                 }}
                 variant="outlined"
                 startIcon={<CloseIcon />}
+                disabled={createAnnouncementLoading}
               >
                 Hủy
               </Button>
               <Button
-                onClick={() => {
-                  if (!announcementForm.title.trim()) {
-                    alert('Vui lòng nhập tiêu đề thông báo');
-                    return;
-                  }
-                  if (!announcementForm.content.trim()) {
-                    alert('Vui lòng nhập nội dung thông báo');
-                    return;
-                  }
-                  handleCreateAnnouncement();
-                }}
+                onClick={handleCreateAnnouncement}
                 variant="contained"
-                startIcon={<SendIcon />}
-                disabled={!announcementForm.title.trim() || !announcementForm.content.trim()}
+                startIcon={createAnnouncementLoading ? <CircularProgress size={16} /> : <SendIcon />}
+                disabled={createAnnouncementLoading || !announcementForm.title.trim() || !announcementForm.content.trim()}
               >
-                Đăng thông báo
+                {createAnnouncementLoading ? 'Đang tạo...' : 'Đăng thông báo'}
               </Button>
             </Box>
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Notification Snackbar */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={hideNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={hideNotification}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

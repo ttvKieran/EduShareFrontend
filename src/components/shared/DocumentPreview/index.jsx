@@ -26,6 +26,7 @@ import API_BASE_URL from "../../../configs/system";
 import { useAuth } from '../../../contexts/AuthContext';
 
 const DocumentPreview = ({ doc, open, onClose }) => {
+  console.log(doc);
   const { authenticatedFetch } = useAuth();
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);

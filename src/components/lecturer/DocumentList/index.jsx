@@ -36,6 +36,8 @@ import DocumentUpload from '../DocumentUpload';
 
 const DocumentList = ({
     documents = [],
+    classId,
+    courseId,
     title = "Tài liệu học tập",
     icon: IconComponent = MenuBookIcon,
     showUploadButton = true,
@@ -49,6 +51,7 @@ const DocumentList = ({
     onDelete,
     onTogglePublish,
     onUpload,
+    onRefresh,
     searchPlaceholder = "Tìm kiếm tài liệu...",
     emptyStateMessage = "Chưa có tài liệu nào",
     emptyStateDescription = "Hãy tải lên tài liệu đầu tiên",
@@ -100,9 +103,9 @@ const DocumentList = ({
     };
 
     const handleDelete = (document) => {
-        if (window.confirm(`Bạn có chắc muốn xóa tài liệu "${document.title}"?`)) {
-            onDelete?.(document);
-        }
+        // if (window.confirm(`Bạn có chắc muốn xóa tài liệu "${document.title}"?`)) {
+        //     onDelete?.(document);
+        // }
     };
 
     const handleTogglePublish = (document) => {
@@ -209,13 +212,13 @@ const DocumentList = ({
                                 >
                                     Bộ lọc
                                 </Button>
-                                <Button
+                                {/* <Button
                                     variant="outlined"
                                     size="small"
                                     startIcon={<DownloadIcon />}
                                 >
                                     Xuất Excel
-                                </Button>
+                                </Button> */}
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={4}>
@@ -251,6 +254,7 @@ const DocumentList = ({
                                     onDownload={handleDownload}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
+                                    onRefresh={onRefresh}
                                     onTogglePublish={handleTogglePublish}
                                 />
                             </Grid>
@@ -306,13 +310,18 @@ const DocumentList = ({
             )}
 
             {/* Document Preview Dialog */}
-            <DocumentPreview
+            {/* <DocumentPreview
                 document={previewDocument}
                 open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
                 onDownload={handleDownload}
                 onEdit={handleEdit}
-            />
+            /> */}
+            <DocumentPreview
+        doc={document}
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+      />
 
             {/* Default Upload Dialog (nếu không có custom onUpload) */}
             {!onUpload && (
@@ -400,7 +409,8 @@ const DocumentList = ({
                 open={uploadDialogOpen}
                 onClose={() => setUploadDialogOpen(false)}
                 onUpload={handleUploadSubmit}
-                courseId={"1234"} //courseId
+                classId={classId}
+                courseId={courseId}
             />
         </Box>
     );

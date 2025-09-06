@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -15,65 +15,133 @@ import {
   Chip,
   IconButton,
   Toolbar,
-  Button
+  Button,
+  Alert,
+  CircularProgress,
+  Skeleton
 } from '@mui/material';
 import {
   NavigateBefore,
   NavigateNext,
   Print,
-  Download
+  Download,
+  Refresh
 } from '@mui/icons-material';
+import { useAuth } from '../../../contexts/AuthContext';
+import API_BASE_URL from '../../../configs/system';
 
 const TeacherSchedule = () => {
+  const { authenticatedFetch } = useAuth();
+  
+  // States
+  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState('Tuần 1 [từ ngày 11/08/2025 đến ngày 17/08/2025]');
-  const [selectedSemester, setSemester] = useState('Học kỳ 1 - Năm học 2025-2026');
+  const [selectedSemester, setSelectedSemester] = useState('Học kỳ 1 - Năm học 2025-2026');
 
-  // Dữ liệu mẫu cho lịch giảng dạy
-  const scheduleData = {
-    'Thứ 2': [],
-    'Thứ 3': [
-      {
-        period: 'Tiết 9-10',
-        subject: 'Phát triển các hệ thống thông minh (INT14151)',
-        room: 'Nhóm: 01',
-        location: 'Phòng: 501-NT-501-NT (Cơ sở Ngọc Trục)',
-        instructor: 'GV: Trần Đình Quế',
-        type: 'Dạy sinh viên'
+  // Fetch schedule data from API
+  const fetchScheduleData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/classes/schedule`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Schedule API Response:', data);
+        
+        if (data.success) {
+          setClasses(data.data);
+        } else {
+          setError('Không thể tải dữ liệu lịch giảng dạy');
+        }
+      } else {
+        setError('Lỗi khi tải lịch giảng dạy');
       }
-    ],
-    'Thứ 4': [
-      {
-        period: 'Tiết 9-10',
-        subject: 'IoT và ứng dụng (INT14149)',
-        room: 'Nhóm: 02',
-        location: 'Phòng: 501-NT-501-NT (Cơ sở Ngọc Trục)',
-        instructor: 'GV: Lê Văn Vinh',
-        type: 'Dạy sinh viên'
-      }
-    ],
-    'Thứ 5': [
-      {
-        period: 'Tiết 1',
-        subject: 'Quản lý dự án phần mềm (INT1450)',
-        room: 'Nhóm: 03',
-        location: 'Phòng: 405-NT-405 - CS Ngọc Trục',
-        instructor: 'GV: Đỗ Thị Bích Ngọc',
-        type: 'Dạy sinh viên'
-      }
-    ],
-    'Thứ 6': [
-      {
-        period: 'Tiết 7',
-        subject: 'Phương pháp luận nghiên cứu khoa học (SKD1108)',
-        room: 'Nhóm: 12',
-        location: 'Phòng: 501-NT-501-NT (Cơ sở Ngọc Trục)',
-        instructor: 'GV: Nguyễn Thị Thu Hiền',
-        type: 'Dạy sinh viên'
-      }
-    ],
-    'Thứ 7': [],
-    'Chủ Nhật': []
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+      setError('Có lỗi xảy ra khi tải dữ liệu');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchScheduleData();
+  }, []);
+
+  // Helper function to convert dayOfWeek number to Vietnamese day name
+  const getDayName = (dayOfWeek) => {
+    const days = {
+      1: 'Chủ Nhật',
+      2: 'Thứ 2', 
+      3: 'Thứ 3',
+      4: 'Thứ 4',
+      5: 'Thứ 5',
+      6: 'Thứ 6',
+      7: 'Thứ 7'
+    };
+    return days[dayOfWeek] || '';
+  };
+
+  // Helper function to get period from time
+  const getPeriodFromTime = (timeStart) => {
+    const timeToSlot = {
+      '07:00': 'Tiết 1',
+      '08:00': 'Tiết 3', 
+      '09:00': 'Tiết 5',
+      '10:00': 'Tiết 7',
+      '13:00': 'Tiết 7',
+      '14:00': 'Tiết 9',
+      '15:00': 'Tiết 11',
+      '16:00': 'Tiết 13'
+    };
+    return timeToSlot[timeStart] || timeStart;
+  };
+
+  // Transform API data to schedule format
+  const transformToScheduleData = () => {
+    const scheduleData = {
+      'Thứ 2': [],
+      'Thứ 3': [],
+      'Thứ 4': [],
+      'Thứ 5': [],
+      'Thứ 6': [],
+      'Thứ 7': [],
+      'Chủ Nhật': []
+    };
+
+    classes.forEach(classItem => {
+      if (classItem.schedule && classItem.schedule.length > 0) {
+        classItem.schedule.forEach(scheduleItem => {
+          const dayName = getDayName(scheduleItem.dayOfWeek);
+          if (dayName && scheduleData[dayName]) {
+            const scheduleEntry = {
+              period: `${getPeriodFromTime(scheduleItem.timeStart)} (${scheduleItem.timeStart}-${scheduleItem.timeEnd})`,
+              subject: `${classItem.courseId.name} (${classItem.courseId.code})`,
+              room: `Lớp: ${classItem.name}`,
+              location: `Phòng: ${scheduleItem.classroom}`,
+              instructor: `Giảng viên đang giảng dạy`,
+              type: 'Dạy sinh viên',
+              classId: classItem._id,
+              courseId: classItem.courseId._id,
+              credits: classItem.courseId.credits,
+              studentCount: classItem.studentIds ? classItem.studentIds.length : 0,
+              maxStudents: classItem.courseId.maxStudents
+            };
+            scheduleData[dayName].push(scheduleEntry);
+          }
+        });
+      }
+    });
+
+    return scheduleData;
+  };
+
+  const scheduleData = transformToScheduleData();
 
   const timeSlots = [
     '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', 
@@ -89,9 +157,59 @@ const TeacherSchedule = () => {
 
   const getCellContent = (day, period) => {
     const daySchedule = scheduleData[day];
-    const item = daySchedule?.find(s => s.period.includes(period.split(' ')[1]));
-    return item;
+    return daySchedule?.find(s => s.period.includes(period)) || null;
   };
+
+  // Get unique semesters from classes data
+  const getSemesters = () => {
+    const semesters = [...new Set(classes.map(c => `Học kỳ ${c.semester} - Năm học ${c.academicYear}`))];
+    return semesters.length > 0 ? semesters : ['Học kỳ 1 - Năm học 2025-2026'];
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, backgroundColor: '#f0f8ff', minHeight: '100vh' }}>
+        <Paper elevation={2} sx={{ mb: 3, backgroundColor: '#1976d2' }}>
+          <Toolbar sx={{ color: 'white', justifyContent: 'space-between' }}>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              📅 THỜI KHÓA BIỂU GIẢNG DẠY
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <CircularProgress size={24} sx={{ color: 'white' }} />
+            </Box>
+          </Toolbar>
+        </Paper>
+
+        <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+          <Skeleton variant="rectangular" width={300} height={56} />
+          <Skeleton variant="rectangular" width={400} height={56} />
+        </Box>
+
+        <TableContainer component={Paper} elevation={2}>
+          <Skeleton variant="rectangular" width="100%" height={600} />
+        </TableContainer>
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3, backgroundColor: '#f0f8ff', minHeight: '100vh' }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button
+          variant="contained"
+          startIcon={<Refresh />}
+          onClick={fetchScheduleData}
+        >
+          Thử lại
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f0f8ff', minHeight: '100vh' }}>
@@ -102,31 +220,70 @@ const TeacherSchedule = () => {
             📅 THỜI KHÓA BIỂU GIẢNG DẠY
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton sx={{ color: 'white' }}>
-              <Print />
+            <IconButton sx={{ color: 'white' }} onClick={fetchScheduleData}>
+              <Refresh />
             </IconButton>
-            <Button variant="contained" sx={{  }}>
+            <Button variant="contained" startIcon={<Print />}>
               In
             </Button>
-            <Button variant="contained" sx={{  }}>
-              Tải lịch
-            </Button>
-            <Button variant="contained" sx={{ }}>
+            <Button variant="contained" startIcon={<Download />}>
               Tải lịch
             </Button>
           </Box>
         </Toolbar>
       </Paper>
 
+      {/* Summary Stats */}
+      {/* <Paper sx={{ p: 2, mb: 3, backgroundColor: 'white' }}>
+        <Box sx={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" color="primary.main" sx={{ fontWeight: 600 }}>
+              {classes.length}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Tổng lớp học
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" color="success.main" sx={{ fontWeight: 600 }}>
+              {classes.filter(c => c.status === 'active').length}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Lớp đang hoạt động
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" color="warning.main" sx={{ fontWeight: 600 }}>
+              {classes.reduce((total, c) => total + (c.studentIds ? c.studentIds.length : 0), 0)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Tổng sinh viên
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="h4" color="info.main" sx={{ fontWeight: 600 }}>
+              {classes.reduce((total, c) => total + (c.schedule ? c.schedule.length : 0), 0)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Tiết học/tuần
+            </Typography>
+          </Box>
+        </Box>
+      </Paper> */}
+
       {/* Controls */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
         <FormControl sx={{ minWidth: 300 }}>
           <Select
             value={selectedSemester}
-            onChange={(e) => setSemester(e.target.value)}
+            onChange={(e) => setSelectedSemester(e.target.value)}
             sx={{ backgroundColor: 'white' }}
           >
-            <MenuItem value="Học kỳ 1 - Năm học 2025-2026">Học kỳ 1 - Năm học 2025-2026</MenuItem>
+            {getSemesters().map((semester) => (
+              <MenuItem key={semester} value={semester}>
+                {semester}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 
@@ -139,10 +296,13 @@ const TeacherSchedule = () => {
             <MenuItem value="Tuần 1 [từ ngày 11/08/2025 đến ngày 17/08/2025]">
               Tuần 1 [từ ngày 11/08/2025 đến ngày 17/08/2025]
             </MenuItem>
+            <MenuItem value="Tuần 2 [từ ngày 18/08/2025 đến ngày 24/08/2025]">
+              Tuần 2 [từ ngày 18/08/2025 đến ngày 24/08/2025]
+            </MenuItem>
           </Select>
         </FormControl>
 
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {/* <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton sx={{ color: '#1976d2' }}>
             <NavigateBefore />
           </IconButton>
@@ -154,7 +314,7 @@ const TeacherSchedule = () => {
           <IconButton sx={{ color: '#1976d2' }}>
             <NavigateNext />
           </IconButton>
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Schedule Table */}
@@ -162,20 +322,38 @@ const TeacherSchedule = () => {
         <Table sx={{ minWidth: 800 }}>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#1976d2' }}>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold', width: '80px', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}>
-                Trước
+              <TableCell sx={{ 
+                color: 'white', 
+                fontWeight: 'bold', 
+                width: '80px', 
+                borderRight: '1px solid #E0E0E0', 
+                borderLeft: '1px solid #E0E0E0' 
+              }}>
+                Tiết
               </TableCell>
               {Object.keys(scheduleData).map((day) => (
                 <TableCell 
                   key={day} 
                   align="center" 
-                  sx={{ color: 'white', fontWeight: 'bold', minWidth: '100px', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}
+                  sx={{ 
+                    color: 'white', 
+                    fontWeight: 'bold', 
+                    minWidth: '150px', 
+                    borderRight: '1px solid #E0E0E0', 
+                    borderLeft: '1px solid #E0E0E0' 
+                  }}
                 >
                   {day}
                 </TableCell>
               ))}
-              <TableCell sx={{ color: 'white', fontWeight: 'bold', width: '80px', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}>
-                Sau
+              <TableCell sx={{ 
+                color: 'white', 
+                fontWeight: 'bold', 
+                width: '80px', 
+                borderRight: '1px solid #E0E0E0', 
+                borderLeft: '1px solid #E0E0E0' 
+              }}>
+                Giờ
               </TableCell>
             </TableRow>
           </TableHead>
@@ -187,8 +365,9 @@ const TeacherSchedule = () => {
                     backgroundColor: '#1976d2', 
                     color: 'white', 
                     fontWeight: 'bold',
-                    textAlign: 'center'
-                    , borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0'
+                    textAlign: 'center',
+                    borderRight: '1px solid #E0E0E0', 
+                    borderLeft: '1px solid #E0E0E0'
                   }}
                 >
                   {period}
@@ -199,11 +378,12 @@ const TeacherSchedule = () => {
                     <TableCell 
                       key={day} 
                       sx={{ 
-                        height: '60px', 
+                        height: '80px', 
                         verticalAlign: 'top', 
                         p: 1,
-                        backgroundColor: content ? '#e3f2fd' : 'white'
-                        , borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0'
+                        backgroundColor: content ? '#e3f2fd' : 'white',
+                        borderRight: '1px solid #E0E0E0', 
+                        borderLeft: '1px solid #E0E0E0'
                       }}
                     >
                       {content && (
@@ -220,20 +400,32 @@ const TeacherSchedule = () => {
                             {content.location}
                           </Typography>
                           <br />
-                          <Typography variant="caption" sx={{ color: '#1976d2' }}>
-                            {content.instructor}
+                          <Typography variant="caption" sx={{ color: '#666' }}>
+                            SV: {content.studentCount}/{content.maxStudents}
                           </Typography>
                           <br />
-                          <Chip 
-                            label={content.type} 
-                            size="small" 
-                            sx={{ 
-                              backgroundColor: '#bbdefb', 
-                              color: '#1565c0',
-                              fontSize: '0.6rem',
-                              height: '16px'
-                            }} 
-                          />
+                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                            <Chip 
+                              label={content.type} 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: '#bbdefb', 
+                                color: '#1565c0',
+                                fontSize: '0.6rem',
+                                height: '16px'
+                              }} 
+                            />
+                            <Chip 
+                              label={`${content.credits} TC`} 
+                              size="small" 
+                              sx={{ 
+                                backgroundColor: '#c8e6c9', 
+                                color: '#2e7d32',
+                                fontSize: '0.6rem',
+                                height: '16px'
+                              }} 
+                            />
+                          </Box>
                         </Box>
                       )}
                     </TableCell>
@@ -244,7 +436,9 @@ const TeacherSchedule = () => {
                     backgroundColor: '#1976d2', 
                     color: 'white', 
                     fontWeight: 'bold',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    borderRight: '1px solid #E0E0E0', 
+                    borderLeft: '1px solid #E0E0E0'
                   }}
                 >
                   {timeSlots[index]}
@@ -255,30 +449,24 @@ const TeacherSchedule = () => {
         </Table>
       </TableContainer>
 
-      {/* Footer */}
-      {/* <TableContainer component={Paper} elevation={2} sx={{ mt: 0 }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: '#1976d2' }}>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}>
-                Trước
-              </TableCell>
-              {Object.keys(scheduleData).map((day) => (
-                <TableCell 
-                  key={day} 
-                  align="center" 
-                  sx={{ color: 'white', fontWeight: 'bold', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}
-                >
-                  {day}
-                </TableCell>
-              ))}
-              <TableCell sx={{ color: 'white', fontWeight: 'bold', borderRight: '1px solid #E0E0E0', borderLeft: '1px solid #E0E0E0' }}>
-                Sau
-              </TableCell>
-            </TableRow>
-          </TableHead>
-        </Table>
-      </TableContainer> */}
+      {/* No schedule message */}
+      {classes.length === 0 && (
+        <Paper sx={{ p: 4, textAlign: 'center', mt: 3 }}>
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+            Chưa có lịch giảng dạy nào
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Bạn chưa được phân công giảng dạy lớp học nào trong học kỳ này
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Refresh />}
+            onClick={fetchScheduleData}
+          >
+            Làm mới
+          </Button>
+        </Paper>
+      )}
     </Box>
   );
 };

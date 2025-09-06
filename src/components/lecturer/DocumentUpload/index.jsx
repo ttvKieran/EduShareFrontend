@@ -25,16 +25,15 @@ import {
     Card,
     CardContent,
     Divider,
-    List,
     ListItem,
     ListItemIcon,
     ListItemText,
-    ListItemSecondaryAction
+    ListItemSecondaryAction,
+    Autocomplete
 } from '@mui/material';
 import {
     CloudUpload as CloudUploadIcon,
     Close as CloseIcon,
-    AttachFile as AttachFileIcon,
     Delete as DeleteIcon,
     InsertDriveFile as FileIcon,
     PictureAsPdf as PdfIcon,
@@ -42,19 +41,27 @@ import {
     Image as ImageIcon,
     VideoFile as VideoIcon,
     Archive as ArchiveIcon,
-    Add as AddIcon,
     Check as CheckIcon,
     Error as ErrorIcon,
-    Info as InfoIcon
+    Info as InfoIcon,
+    People as PeopleIcon,
+    LocalOffer as LocalOfferIcon,
+    Warning as WarningIcon
 } from '@mui/icons-material';
+import { useAuth } from '../../../contexts/AuthContext';
+import API_BASE_URL from "../../../configs/system";
 
 const DocumentUpload = ({ 
     open, 
     onClose, 
     onUpload,
-    courseId = null,
+    courseId,
+    classId,
     initialData = null
 }) => {
+    console.log("-------------------------------/n", classId);
+    const { authenticatedFetch } = useAuth();
+    
     // States
     const [activeStep, setActiveStep] = useState(0);
     const [uploadForm, setUploadForm] = useState({
@@ -62,13 +69,14 @@ const DocumentUpload = ({
         description: '',
         type: 'lecture',
         category: '',
-        isPublished: true,
+        status: 'active', // 'active' cho xuất bản ngay, 'draft' cho bản nháp
         allowDownload: true,
         tags: [],
-        files: [],
-        courseId: courseId
+        authors: [], // Thêm mảng authors
+        file: null, // Single file only
+        courseId: courseId,
+        classId: classId
     });
-    const [newTag, setNewTag] = useState('');
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [errors, setErrors] = useState({});
@@ -96,10 +104,21 @@ const DocumentUpload = ({
         'Slide bài giảng'
     ];
 
+    // Predefined tags for autocomplete
+    const [predefinedTags] = useState([
+        'Java', 'JavaScript', 'Python', 'C++', 'HTML', 'CSS', 'React', 'Node.js',
+        'Database', 'SQL', 'MongoDB', 'Algorithm', 'Data Structure', 'OOP',
+        'Web Development', 'Mobile App', 'AI', 'Machine Learning', 'DevOps',
+        'Testing', 'Security', 'API', 'Framework', 'Library', 'Tutorial',
+        'Exercise', 'Project', 'Assignment', 'Exam', 'Reference'
+    ]);
+
     // File type icons
     const getFileIcon = (file) => {
-        const type = file.type.toLowerCase();
-        const name = file.name.toLowerCase();
+        if (!file) return <FileIcon color="action" />;
+        
+        const type = file.type?.toLowerCase() || '';
+        const name = file.name?.toLowerCase() || '';
         
         if (type.includes('pdf')) return <PdfIcon color="error" />;
         if (type.includes('word') || name.includes('.doc')) return <DocIcon color="primary" />;
@@ -117,75 +136,91 @@ const DocumentUpload = ({
             newErrors.title = 'Tiêu đề không được để trống';
         }
         
-        if (uploadForm.files.length === 0) {
-            newErrors.files = 'Vui lòng chọn ít nhất một file';
+        if (!uploadForm.file) {
+            newErrors.file = 'Vui lòng chọn file';
         }
         
         if (!uploadForm.type) {
             newErrors.type = 'Vui lòng chọn loại tài liệu';
         }
 
+        if (uploadForm.authors.length === 0) {
+            newErrors.authors = 'Phải có ít nhất một tác giả';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Handle file selection
+    // Handle file selection - single file only với size limit nhỏ hơn
     const handleFileSelect = (event) => {
-        const selectedFiles = Array.from(event.target.files);
-        const validFiles = [];
-        const maxSize = 100 * 1024 * 1024; // 100MB
+        const selectedFile = event.target.files?.[0];
+        if (!selectedFile) return;
         
-        selectedFiles.forEach(file => {
-            if (file.size > maxSize) {
-                alert(`File ${file.name} quá lớn. Kích thước tối đa là 100MB.`);
-                return;
-            }
-            
-            validFiles.push({
-                file,
-                id: Date.now() + Math.random(),
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                progress: 0
-            });
-        });
+        // Giảm kích thước tối đa xuống 50MB để tránh lỗi 413
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        
+        if (selectedFile.size > maxSize) {
+            setErrors({ file: `File quá lớn. Kích thước tối đa là 50MB. File hiện tại: ${formatFileSize(selectedFile.size)}` });
+            return;
+        }
+        
+        // Kiểm tra loại file được hỗ trợ
+        const allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'video/mp4',
+            'video/avi',
+            'application/zip',
+            'application/x-rar-compressed'
+        ];
+        
+        const fileName = selectedFile.name.toLowerCase();
+        const isValidType = allowedTypes.includes(selectedFile.type) || 
+                           fileName.endsWith('.pdf') || 
+                           fileName.endsWith('.doc') || 
+                           fileName.endsWith('.docx') ||
+                           fileName.endsWith('.ppt') ||
+                           fileName.endsWith('.pptx') ||
+                           fileName.endsWith('.xls') ||
+                           fileName.endsWith('.xlsx') ||
+                           fileName.endsWith('.zip') ||
+                           fileName.endsWith('.rar');
+        
+        if (!isValidType) {
+            setErrors({ file: 'Loại file không được hỗ trợ. Vui lòng chọn file PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, JPG, PNG, MP4, ZIP hoặc RAR.' });
+            return;
+        }
         
         setUploadForm(prev => ({
             ...prev,
-            files: [...prev.files, ...validFiles]
+            file: selectedFile
         }));
         
+        // Clear any existing file error
+        setErrors(prev => ({ ...prev, file: '' }));
+        
+        // Clear input để có thể chọn lại file khác
         if (event.target) {
             event.target.value = '';
         }
     };
 
     // Remove file
-    const handleRemoveFile = (fileId) => {
+    const handleRemoveFile = () => {
         setUploadForm(prev => ({
             ...prev,
-            files: prev.files.filter(f => f.id !== fileId)
+            file: null
         }));
-    };
-
-    // Add tag
-    const handleAddTag = () => {
-        if (newTag.trim() && !uploadForm.tags.includes(newTag.trim())) {
-            setUploadForm(prev => ({
-                ...prev,
-                tags: [...prev.tags, newTag.trim()]
-            }));
-            setNewTag('');
-        }
-    };
-
-    // Remove tag
-    const handleRemoveTag = (tagToRemove) => {
-        setUploadForm(prev => ({
-            ...prev,
-            tags: prev.tags.filter(tag => tag !== tagToRemove)
-        }));
+        setErrors(prev => ({ ...prev, file: '' }));
     };
 
     // Format file size
@@ -199,14 +234,20 @@ const DocumentUpload = ({
 
     // Handle next step
     const handleNext = () => {
-        if (activeStep === 0 && uploadForm.files.length === 0) {
-            setErrors({ files: 'Vui lòng chọn ít nhất một file' });
+        if (activeStep === 0 && !uploadForm.file) {
+            setErrors({ file: 'Vui lòng chọn file' });
             return;
         }
         
-        if (activeStep === 1 && !uploadForm.title.trim()) {
-            setErrors({ title: 'Tiêu đề không được để trống' });
-            return;
+        if (activeStep === 1) {
+            if (!uploadForm.title.trim()) {
+                setErrors({ title: 'Tiêu đề không được để trống' });
+                return;
+            }
+            if (uploadForm.authors.length === 0) {
+                setErrors({ authors: 'Phải có ít nhất một tác giả' });
+                return;
+            }
         }
         
         setErrors({});
@@ -218,7 +259,10 @@ const DocumentUpload = ({
         setActiveStep((prevActiveStep) => prevActiveStep - 1);
     };
 
-    // Handle submit
+    // Handle submit với improved error handling
+    // ...existing code...
+
+    // Handle submit với pure FormData
     const handleSubmit = async () => {
         if (!validateForm()) return;
         
@@ -226,28 +270,160 @@ const DocumentUpload = ({
         setUploadProgress(0);
         
         try {
-            // Simulate upload progress
-            for (let i = 0; i <= 100; i += 10) {
-                setUploadProgress(i);
-                await new Promise(resolve => setTimeout(resolve, 200));
+            // Double check file size before upload
+            if (uploadForm.file.size > 100 * 1024 * 1024) {
+                throw new Error(`File quá lớn (${formatFileSize(uploadForm.file.size)}). Kích thước tối đa là 100MB.`);
             }
+
+            // Prepare FormData - GỬI FORM DATA THUẦN TÚY
+            const formData = new FormData();
             
-            // Call onUpload callback
-            if (onUpload) {
-                await onUpload(uploadForm);
+            // Append file
+            formData.append('file', uploadForm.file);
+            
+            // Append text fields
+            formData.append('title', uploadForm.title.trim());
+            formData.append('description', uploadForm.description.trim());
+            formData.append('type', uploadForm.type);
+            formData.append('category', uploadForm.category);
+            formData.append('status', uploadForm.status);
+            formData.append('allowDownload', String(uploadForm.allowDownload));
+            if(classId) formData.append('classId', classId);
+            else if(courseId) formData.append('courseId', courseId);
+            
+
+            // JSON fields as strings
+            formData.append('tags', JSON.stringify(uploadForm.tags));
+            
+            // Authors as array of objects with name property
+            const authorsData = uploadForm.authors
+                .filter(author => author.trim())
+                .map(author => ({ name: author.trim() }));
+            formData.append('authors', JSON.stringify(authorsData));
+            
+            // Determine isForClass based on classId/courseId
+            if (classId) {
+                formData.append('isForClass', 'true');
+            } else if (courseId) {
+                formData.append('isForClass', 'false');
             }
+
+            // Determine API endpoint
+            const apiId = classId || courseId;
+            const apiUrl = `${API_BASE_URL}/lecturer/documents/upload/${apiId}`;
+
+            console.log('Uploading to:', apiUrl);
+            console.log('File size:', formatFileSize(uploadForm.file.size));
+            console.log('File type:', uploadForm.file.type);
             
-            // Reset form and close
-            handleClose();
+            // Log FormData contents (for debugging)
+            console.log('FormData entries:');
+            for (let [key, value] of formData.entries()) {
+                if (key === 'file') {
+                    console.log(key, `File: ${value.name} (${formatFileSize(value.size)})`);
+                } else {
+                    console.log(key, value);
+                }
+            }
+
+            // console.log("------\n", [...formData.entries()]);
+
+            // Upload với XMLHttpRequest để track progress
+            const uploadPromise = new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                
+                // Setup progress tracking
+                xhr.upload.addEventListener('progress', (event) => {
+                    if (event.lengthComputable) {
+                        const percentComplete = (event.loaded / event.total) * 100;
+                        setUploadProgress(percentComplete);
+                    }
+                });
+                
+                // Setup response handlers
+                xhr.addEventListener('load', () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            resolve(response);
+                        } catch (error) {
+                            reject(new Error('Invalid response format'));
+                        }
+                    } else {
+                        try {
+                            const errorResponse = JSON.parse(xhr.responseText);
+                            reject(new Error(errorResponse.message || `HTTP ${xhr.status}`));
+                        } catch {
+                            reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                        }
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error'));
+                });
+                
+                xhr.addEventListener('timeout', () => {
+                    reject(new Error('Upload timeout'));
+                });
+                
+                // Get token for authorization
+                const token = sessionStorage.getItem('accessToken');
+                
+                // Open request
+                xhr.open('POST', apiUrl);
+                
+                // Set headers
+                if (token) {
+                    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                }
+                // DON'T set Content-Type for FormData - let browser handle it
+                
+                // Set timeout (5 minutes for large files)
+                xhr.timeout = 5 * 60 * 1000;
+                
+                // Send the form data
+                xhr.send(formData);
+            });
+
+            const result = await uploadPromise;
+            
+            if (result.success) {
+                setUploadProgress(100);
+                
+                // Success - wait a moment then close
+                setTimeout(() => {
+                    if (onUpload) {
+                        onUpload(result.data);
+                    }
+                    handleClose();
+                }, 1000);
+            } else {
+                throw new Error(result.message || 'Upload failed');
+            }
             
         } catch (error) {
             console.error('Upload error:', error);
-            alert('Có lỗi xảy ra khi tải file lên. Vui lòng thử lại.');
+            setUploadProgress(0);
+            
+            // Show user-friendly error message
+            let errorMessage = error.message;
+            
+            if (error.message.includes('413') || error.message.includes('PayloadTooLargeError')) {
+                errorMessage = `File quá lớn để tải lên server. Vui lòng chọn file nhỏ hơn 100MB. File hiện tại: ${formatFileSize(uploadForm.file.size)}`;
+            } else if (error.message.includes('Failed to fetch') || error.message.includes('Network error')) {
+                errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng';
+            } else if (error.message.includes('timeout')) {
+                errorMessage = 'Upload quá lâu. Vui lòng thử lại với file nhỏ hơn';
+            }
+            
+            alert(`Có lỗi xảy ra khi tải file lên: ${errorMessage}`);
         } finally {
             setUploading(false);
-            setUploadProgress(0);
         }
     };
+
+// ...existing code...
 
     // Handle close
     const handleClose = () => {
@@ -258,106 +434,137 @@ const DocumentUpload = ({
                 description: '',
                 type: 'lecture',
                 category: '',
-                isPublished: true,
+                status: 'active',
                 allowDownload: true,
                 tags: [],
-                files: [],
-                courseId: courseId
+                authors: [],
+                file: null,
+                courseId: courseId,
+                classId: classId
             });
             setErrors({});
-            setNewTag('');
             onClose();
         }
     };
+
+    // Step content - Step 0: File Selection
+    const renderFileSelectionStep = () => (
+        <Box>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+                Chọn tài liệu để tải lên
+            </Typography>
+            
+            {/* File size warning */}
+            <Alert severity="warning" sx={{ mb: 3 }}>
+                <Typography variant="body2">
+                    <strong>Lưu ý:</strong> Kích thước file tối đa là <strong>50MB</strong>. 
+                    Nếu file lớn hơn, vui lòng nén hoặc chia nhỏ file trước khi tải lên.
+                </Typography>
+            </Alert>
+            
+            {/* Upload Area */}
+            <Card 
+                sx={{ 
+                    mb: 3, 
+                    border: '2px dashed', 
+                    borderColor: errors.file ? 'error.main' : 'grey.300',
+                    bgcolor: 'grey.50',
+                    cursor: 'pointer',
+                    '&:hover': {
+                        borderColor: 'primary.main',
+                        bgcolor: 'primary.50'
+                    }
+                }}
+                onClick={() => fileInputRef.current?.click()}
+            >
+                <CardContent sx={{ textAlign: 'center', py: 6 }}>
+                    <CloudUploadIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                        Click để chọn file tài liệu
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Hỗ trợ: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, JPG, PNG, MP4, ZIP, RAR
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        Kích thước tối đa: 50MB • Chỉ chọn 1 file
+                    </Typography>
+                </CardContent>
+            </Card>
+
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.mp4,.avi,.zip,.rar,.jpg,.jpeg,.png,.gif"
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+            />
+
+            {errors.file && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                        {errors.file}
+                    </Typography>
+                </Alert>
+            )}
+
+            {/* Selected File Display */}
+            {uploadForm.file && (
+                <Card>
+                    <CardContent>
+                        <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                            <CheckIcon color="success" sx={{ mr: 1 }} />
+                            File đã chọn
+                        </Typography>
+                        <ListItem 
+                            sx={{ 
+                                border: '1px solid', 
+                                borderColor: 'success.main', 
+                                borderRadius: 1,
+                                bgcolor: 'success.50'
+                            }}
+                        >
+                            <ListItemIcon>
+                                {getFileIcon(uploadForm.file)}
+                            </ListItemIcon>
+                            <ListItemText
+                                primary={
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                        {uploadForm.file.name}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Kích thước: {formatFileSize(uploadForm.file.size)}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Loại: {uploadForm.file.type || 'Không xác định'}
+                                        </Typography>
+                                    </Box>
+                                }
+                            />
+                            <ListItemSecondaryAction>
+                                <IconButton 
+                                    edge="end" 
+                                    onClick={handleRemoveFile}
+                                    color="error"
+                                    title="Xóa file"
+                                >
+                                    <DeleteIcon />
+                                </IconButton>
+                            </ListItemSecondaryAction>
+                        </ListItem>
+                    </CardContent>
+                </Card>
+            )}
+        </Box>
+    );
 
     // Step content
     const getStepContent = (step) => {
         switch (step) {
             case 0:
-                return (
-                    <Box>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                            Chọn tài liệu để tải lên
-                        </Typography>
-                        
-                        {/* Upload Area */}
-                        <Card 
-                            sx={{ 
-                                mb: 3, 
-                                border: '2px dashed', 
-                                borderColor: errors.files ? 'error.main' : 'grey.300',
-                                bgcolor: 'grey.50',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                    bgcolor: 'primary.50'
-                                }
-                            }}
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <CardContent sx={{ textAlign: 'center', py: 6 }}>
-                                <CloudUploadIcon sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-                                <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
-                                    Kéo thả file vào đây hoặc click để chọn
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Hỗ trợ: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, MP4, AVI, ZIP, RAR
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Kích thước tối đa: 100MB mỗi file
-                                </Typography>
-                            </CardContent>
-                        </Card>
-
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.mp4,.avi,.zip,.rar,.jpg,.jpeg,.png,.gif"
-                            style={{ display: 'none' }}
-                            onChange={handleFileSelect}
-                        />
-
-                        {errors.files && (
-                            <Alert severity="error" sx={{ mb: 2 }}>
-                                {errors.files}
-                            </Alert>
-                        )}
-
-                        {/* Selected Files */}
-                        {uploadForm.files.length > 0 && (
-                            <Card>
-                                <CardContent>
-                                    <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                                        Files đã chọn ({uploadForm.files.length})
-                                    </Typography>
-                                    <List>
-                                        {uploadForm.files.map((fileData) => (
-                                            <ListItem key={fileData.id} divider>
-                                                <ListItemIcon>
-                                                    {getFileIcon(fileData.file)}
-                                                </ListItemIcon>
-                                                <ListItemText
-                                                    primary={fileData.name}
-                                                    secondary={formatFileSize(fileData.size)}
-                                                />
-                                                <ListItemSecondaryAction>
-                                                    <IconButton 
-                                                        edge="end" 
-                                                        onClick={() => handleRemoveFile(fileData.id)}
-                                                        color="error"
-                                                    >
-                                                        <DeleteIcon />
-                                                    </IconButton>
-                                                </ListItemSecondaryAction>
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </Box>
-                );
+                return renderFileSelectionStep();
 
             case 1:
                 return (
@@ -432,46 +639,87 @@ const DocumentUpload = ({
                                 />
                             </Grid>
 
+                            {/* Authors - Enhanced Autocomplete */}
                             <Grid item xs={12}>
-                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                    Tags
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-                                    {uploadForm.tags.map((tag) => (
-                                        <Chip
-                                            key={tag}
-                                            label={tag}
-                                            onDelete={() => handleRemoveTag(tag)}
-                                            size="small"
-                                            color="primary"
-                                            variant="outlined"
+                                <Box sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center' }}>
+                                        <PeopleIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+                                        Tác giả *
+                                    </Typography>
+                                </Box>
+                                <Autocomplete
+                                    multiple
+                                    freeSolo
+                                    value={uploadForm.authors}
+                                    onChange={(event, newValue) => {
+                                        setUploadForm(prev => ({ ...prev, authors: newValue }));
+                                        if (errors.authors) {
+                                            setErrors(prev => ({ ...prev, authors: '' }));
+                                        }
+                                    }}
+                                    options={[]} // No predefined options for authors
+                                    renderTags={(value, getTagProps) =>
+                                        value.map((option, index) => (
+                                            <Chip
+                                                variant="outlined"
+                                                label={option}
+                                                size="small"
+                                                {...getTagProps({ index })}
+                                                key={index}
+                                                sx={{ margin: '2px' }}
+                                            />
+                                        ))
+                                    }
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Nhập tên tác giả và nhấn Enter"
+                                            placeholder={uploadForm.authors.length === 0 ? "Ví dụ: Nguyễn Văn A" : "Thêm tác giả khác..."}
+                                            error={!!errors.authors}
+                                            helperText={errors.authors || "Nhấn Enter sau khi nhập tên để thêm tác giả"}
                                         />
-                                    ))}
+                                    )}
+                                />
+                            </Grid>
+
+                            {/* Tags - Enhanced Autocomplete */}
+                            <Grid item xs={12}>
+                                <Box sx={{ mb: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center' }}>
+                                        <LocalOfferIcon sx={{ mr: 1, fontSize: '1.2rem' }} />
+                                        Tags
+                                    </Typography>
                                 </Box>
-                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                    <TextField
-                                        size="small"
-                                        label="Thêm tag"
-                                        value={newTag}
-                                        onChange={(e) => setNewTag(e.target.value)}
-                                        onKeyPress={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleAddTag();
-                                            }
-                                        }}
-                                        placeholder="java, oop, programming..."
-                                        sx={{ flexGrow: 1 }}
-                                    />
-                                    <Button
-                                        variant="outlined"
-                                        onClick={handleAddTag}
-                                        startIcon={<AddIcon />}
-                                        disabled={!newTag.trim()}
-                                    >
-                                        Thêm
-                                    </Button>
-                                </Box>
+                                <Autocomplete
+                                    multiple
+                                    freeSolo
+                                    value={uploadForm.tags}
+                                    onChange={(event, newValue) => {
+                                        setUploadForm(prev => ({ ...prev, tags: newValue }));
+                                    }}
+                                    options={predefinedTags}
+                                    renderTags={(value, getTagProps) =>
+                                        value.map((option, index) => (
+                                            <Chip
+                                                variant="outlined"
+                                                label={option}
+                                                size="small"
+                                                color="primary"
+                                                {...getTagProps({ index })}
+                                                key={index}
+                                                sx={{ margin: '2px' }}
+                                            />
+                                        ))
+                                    }
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Chọn hoặc nhập tags"
+                                            placeholder={uploadForm.tags.length === 0 ? "Ví dụ: Java, Programming, Exercise" : "Thêm tag khác..."}
+                                            helperText="Có thể chọn từ gợi ý hoặc nhập tag mới, nhấn Enter để thêm"
+                                        />
+                                    )}
+                                />
                             </Grid>
                         </Grid>
                     </Box>
@@ -495,10 +743,10 @@ const DocumentUpload = ({
                                         <FormControlLabel
                                             control={
                                                 <Switch
-                                                    checked={uploadForm.isPublished}
+                                                    checked={uploadForm.status === 'active'}
                                                     onChange={(e) => setUploadForm(prev => ({ 
                                                         ...prev, 
-                                                        isPublished: e.target.checked 
+                                                        status: e.target.checked ? 'active' : 'draft'
                                                     }))}
                                                 />
                                             }
@@ -616,17 +864,39 @@ const DocumentUpload = ({
                                             </Box>
                                         )}
 
+                                        {/* Authors */}
+                                        {uploadForm.authors.length > 0 && (
+                                            <Box sx={{ mb: 2 }}>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    Tác giả ({uploadForm.authors.length})
+                                                </Typography>
+                                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                                    {uploadForm.authors.map((author, index) => (
+                                                        <Chip
+                                                            key={index}
+                                                            label={author}
+                                                            size="small"
+                                                            variant="outlined"
+                                                            icon={<PeopleIcon />}
+                                                        />
+                                                    ))}
+                                                </Box>
+                                            </Box>
+                                        )}
+
+                                        {/* Tags */}
                                         {uploadForm.tags.length > 0 && (
                                             <Box>
                                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    Tags
+                                                    Tags ({uploadForm.tags.length})
                                                 </Typography>
                                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                                    {uploadForm.tags.map((tag) => (
+                                                    {uploadForm.tags.map((tag, index) => (
                                                         <Chip
-                                                            key={tag}
+                                                            key={index}
                                                             label={tag}
                                                             size="small"
+                                                            color="primary"
                                                             variant="outlined"
                                                         />
                                                     ))}
@@ -641,37 +911,53 @@ const DocumentUpload = ({
                                 <Card>
                                     <CardContent>
                                         <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                                            Files ({uploadForm.files.length})
+                                            File và cài đặt
                                         </Typography>
                                         
-                                        <List dense>
-                                            {uploadForm.files.map((fileData) => (
-                                                <ListItem key={fileData.id}>
-                                                    <ListItemIcon>
-                                                        {getFileIcon(fileData.file)}
-                                                    </ListItemIcon>
-                                                    <ListItemText
-                                                        primary={fileData.name}
-                                                        secondary={formatFileSize(fileData.size)}
-                                                    />
-                                                </ListItem>
-                                            ))}
-                                        </List>
+                                        {/* File info */}
+                                        {uploadForm.file && (
+                                            <Box sx={{ mb: 3 }}>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    File tài liệu
+                                                </Typography>
+                                                <Box sx={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: 1,
+                                                    p: 2,
+                                                    bgcolor: 'grey.50',
+                                                    borderRadius: 1,
+                                                    border: '1px solid',
+                                                    borderColor: 'grey.200'
+                                                }}>
+                                                    {getFileIcon(uploadForm.file)}
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                            {uploadForm.file.name}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {formatFileSize(uploadForm.file.size)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </Box>
+                                        )}
 
                                         <Divider sx={{ my: 2 }} />
 
+                                        {/* Settings */}
                                         <Box>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                                                 Cài đặt
                                             </Typography>
                                             <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                                                {uploadForm.isPublished ? (
+                                                {uploadForm.status === 'active' ? (
                                                     <CheckIcon color="success" sx={{ mr: 1 }} />
                                                 ) : (
                                                     <ErrorIcon color="warning" sx={{ mr: 1 }} />
                                                 )}
                                                 <Typography variant="body2">
-                                                    {uploadForm.isPublished ? 'Xuất bản ngay' : 'Lưu dưới dạng bản nháp'}
+                                                    {uploadForm.status === 'active' ? 'Xuất bản ngay' : 'Lưu dưới dạng bản nháp'}
                                                 </Typography>
                                             </Box>
                                             <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
@@ -685,10 +971,33 @@ const DocumentUpload = ({
                                                 </Typography>
                                             </Box>
                                         </Box>
+
+                                        <Divider sx={{ my: 2 }} />
+
+                                        {/* Upload destination */}
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                Điểm đến
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {classId ? `Lớp học (ID: ${classId})` : `Môn học (ID: ${courseId})`}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {classId ? 'Tài liệu sẽ chỉ hiển thị trong lớp học này' : 'Tài liệu sẽ hiển thị trong toàn bộ môn học'}
+                                            </Typography>
+                                        </Box>
                                     </CardContent>
                                 </Card>
                             </Grid>
                         </Grid>
+
+                        {/* Final review */}
+                        <Alert severity="info" sx={{ mt: 3 }}>
+                            <Typography variant="body2">
+                                <strong>Kiểm tra cuối cùng:</strong> Hãy đảm bảo tất cả thông tin đã chính xác trước khi tải lên. 
+                                Bạn có thể chỉnh sửa thông tin sau khi upload thành công.
+                            </Typography>
+                        </Alert>
                     </Box>
                 );
 
@@ -747,7 +1056,7 @@ const DocumentUpload = ({
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                             <InfoIcon color="info" sx={{ mr: 1 }} />
                             <Typography variant="body2">
-                                Đang tải lên... {uploadProgress}%
+                                Đang tải lên... {Math.round(uploadProgress)}%
                             </Typography>
                         </Box>
                         <LinearProgress variant="determinate" value={uploadProgress} />

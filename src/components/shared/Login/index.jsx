@@ -131,13 +131,41 @@ export default function LoginPage() {
     });
   };
 
+  // Hàm xác định route dựa trên role của user
+  const getRedirectPath = (user) => {
+    // Kiểm tra role của user để xác định trang đích
+    if (user.role === 'lecturer' || user.role === 'teacher' || user.userType === 'lecturer') {
+      return '/lecturer';
+    } else if (user.role === 'student' || user.userType === 'student') {
+      return '/';
+    } else if (user.role === 'admin') {
+      return '/admin';
+    }
+    
+    // Fallback: dựa vào email domain hoặc pattern
+    const email = user.email || formData.email;
+    if (email.includes('lecturer') || email.includes('teacher') || email.includes('gv')) {
+      return '/lecturer';
+    }
+    
+    // Mặc định là sinh viên
+    return '/';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         toast.success('Đăng nhập thành công!');
-        navigate(from, { replace: true });
+        // Lấy thông tin user từ result hoặc từ context
+        const user = result.user || result.data;
+        
+        // Xác định đường dẫn redirect
+        const redirectPath = getRedirectPath(user);
+        
+        // Navigate với replace để không thể quay lại trang login
+        navigate(redirectPath, { replace: true });
       } else {
         toast.error(result.message);
       }

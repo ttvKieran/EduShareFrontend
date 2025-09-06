@@ -40,9 +40,10 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   if (requiredRole && currentUser?.role !== requiredRole) {
     console.log(`Role mismatch. Required: ${requiredRole}, Current: ${currentUser?.role}`);
     // Redirect to appropriate dashboard based on user role
-    const redirectPath = `/${currentUser?.role || 'student'}`;
-    console.log(`Redirecting to: ${redirectPath}`);
-    return <Navigate to={redirectPath} replace />;
+    // const redirectPath = `/${currentUser?.role || 'student'}`;
+    // console.log(`Redirecting to: ${redirectPath}`);
+    // return <Navigate to={redirectPath} replace />;
+    return <Navigate to="/access-denied" replace role={currentUser?.role} />;
   }
 
   console.log('All checks passed, rendering children');

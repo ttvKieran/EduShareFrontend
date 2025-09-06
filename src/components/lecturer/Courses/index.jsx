@@ -31,7 +31,8 @@ import {
     DialogContent,
     DialogActions,
     LinearProgress,
-    Alert
+    Alert,
+    Skeleton
 } from '@mui/material';
 import {
     School as SchoolIcon,
@@ -54,10 +55,13 @@ import {
     Archive as ArchiveIcon,
     Restore as RestoreIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
+import API_BASE_URL from '../../../configs/system';
 
 const Courses = () => {
     const navigate = useNavigate();
+    const { authenticatedFetch } = useAuth();
     
     // States
     const [courses, setCourses] = useState([]);
@@ -69,140 +73,75 @@ const Courses = () => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Mock data - Môn học mà giảng viên giảng dạy
-    const mockCourses = [
-        {
-            id: 1,
-            code: 'IT3040',
-            name: 'Lập trình hướng đối tượng',
-            englishName: 'Object-Oriented Programming',
-            description: 'Môn học giới thiệu các khái niệm cơ bản về lập trình hướng đối tượng, bao gồm đóng gói, kế thừa, đa hình và trừu tượng hóa.',
-            credits: 3,
-            department: 'Khoa học máy tính',
-            category: 'Bắt buộc',
-            level: 'Đại học',
-            prerequisites: ['IT3020', 'IT3030'],
-            status: 'active',
-            isStarred: true,
-            totalClasses: 8,
-            activeClasses: 3,
-            totalStudents: 240,
-            totalDocuments: 25,
-            totalAssignments: 12,
-            createdAt: '2023-01-15',
-            updatedAt: '2024-08-15'
-        },
-        {
-            id: 2,
-            code: 'IT4040',
-            name: 'Cấu trúc dữ liệu và giải thuật',
-            englishName: 'Data Structures and Algorithms',
-            description: 'Môn học cung cấp kiến thức về các cấu trúc dữ liệu cơ bản và các thuật toán xử lý dữ liệu hiệu quả.',
-            credits: 4,
-            department: 'Khoa học máy tính',
-            category: 'Bắt buộc',
-            level: 'Đại học',
-            prerequisites: ['IT3040'],
-            status: 'active',
-            isStarred: false,
-            totalClasses: 6,
-            activeClasses: 2,
-            totalStudents: 180,
-            totalDocuments: 30,
-            totalAssignments: 15,
-            createdAt: '2023-02-20',
-            updatedAt: '2024-08-10'
-        },
-        {
-            id: 3,
-            code: 'IT4050',
-            name: 'Cơ sở dữ liệu',
-            englishName: 'Database Systems',
-            description: 'Môn học giới thiệu các khái niệm cơ bản về hệ quản trị cơ sở dữ liệu, thiết kế và quản lý CSDL.',
-            credits: 3,
-            department: 'Khoa học máy tính',
-            category: 'Bắt buộc',
-            level: 'Đại học',
-            prerequisites: ['IT3040'],
-            status: 'active',
-            isStarred: true,
-            totalClasses: 5,
-            activeClasses: 2,
-            totalStudents: 150,
-            totalDocuments: 20,
-            totalAssignments: 10,
-            createdAt: '2023-03-10',
-            updatedAt: '2024-08-12'
-        },
-        {
-            id: 4,
-            code: 'IT6040',
-            name: 'Trí tuệ nhân tạo',
-            englishName: 'Artificial Intelligence',
-            description: 'Môn học giới thiệu các khái niệm và kỹ thuật cơ bản trong lĩnh vực trí tuệ nhân tạo.',
-            credits: 3,
-            department: 'Khoa học máy tính',
-            category: 'Tự chọn',
-            level: 'Đại học',
-            prerequisites: ['IT4040', 'IT4050'],
-            status: 'active',
-            isStarred: false,
-            totalClasses: 4,
-            activeClasses: 1,
-            totalStudents: 120,
-            totalDocuments: 18,
-            totalAssignments: 8,
-            createdAt: '2023-08-15',
-            updatedAt: '2024-08-08'
-        },
-        {
-            id: 5,
-            code: 'IT3010',
-            name: 'Nhập môn lập trình',
-            englishName: 'Introduction to Programming',
-            description: 'Môn học cơ bản giới thiệu các khái niệm lập trình căn bản và ngôn ngữ lập trình C.',
-            credits: 4,
-            department: 'Khoa học máy tính',
-            category: 'Bắt buộc',
-            level: 'Đại học',
-            prerequisites: [],
-            status: 'archived',
-            isStarred: false,
-            totalClasses: 12,
-            activeClasses: 0,
-            totalStudents: 300,
-            totalDocuments: 35,
-            totalAssignments: 20,
-            createdAt: '2022-09-01',
-            updatedAt: '2023-12-15'
-        },
-        {
-            id: 6,
-            code: 'IT7040',
-            name: 'Học máy nâng cao',
-            englishName: 'Advanced Machine Learning',
-            description: 'Môn học nâng cao về các thuật toán học máy và ứng dụng trong thực tế.',
-            credits: 3,
-            department: 'Khoa học máy tính',
-            category: 'Tự chọn',
-            level: 'Thạc sĩ',
-            prerequisites: ['IT6040'],
-            status: 'draft',
-            isStarred: true,
-            totalClasses: 0,
-            activeClasses: 0,
-            totalStudents: 0,
-            totalDocuments: 5,
-            totalAssignments: 0,
-            createdAt: '2024-06-01',
-            updatedAt: '2024-08-01'
+    // Fetch courses from API
+    const fetchCourses = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            
+            const response = await authenticatedFetch(`${API_BASE_URL}/lecturer/courses/`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                // Transform API data to match component format
+                const transformedCourses = data.data.map((courseArray) => {
+                    const [courseId, courseData] = courseArray;
+                    
+                    return {
+                        id: courseData._id,
+                        code: courseData.code || 'N/A',
+                        name: courseData.name,
+                        englishName: '', // API không có field này
+                        description: courseData.description,
+                        credits: courseData.credits,
+                        department: courseData.departmentId?.name || 'N/A',
+                        category: courseData.courseType || 'N/A',
+                        level: 'Đại học', // API không có field này, set mặc định
+                        prerequisites: courseData.prerequisites?.map(p => p.code) || [],
+                        status: 'active', // Mặc định active vì API trả về courses của lecturer
+                        isStarred: false, // Sẽ implement sau
+                        totalClasses: courseData.classIds?.length || 0,
+                        activeClasses: courseData.classIds?.filter(c => c.status === 'active').length || 0,
+                        totalStudents: 0, // Sẽ tính từ classIds
+                        totalDocuments: courseData.documentIds?.length || 0,
+                        totalAssignments: 0, // API chưa có field này
+                        createdAt: courseData.createdAt,
+                        updatedAt: courseData.updatedAt,
+                        maxStudents: courseData.maxStudents || 0,
+                        classIds: courseData.classIds || []
+                    };
+                });
+                
+                setCourses(transformedCourses);
+            } else {
+                throw new Error('Failed to fetch courses');
+            }
+        } catch (error) {
+            console.error('Error fetching courses:', error);
+            setError('Không thể tải danh sách môn học. Vui lòng thử lại.');
+        } finally {
+            setLoading(false);
         }
-    ];
+    };
+
+    // Load courses on component mount
+    useEffect(() => {
+        fetchCourses();
+    }, []);
+
+    // Get unique departments for filter
+    const getDepartments = () => {
+        const departments = [...new Set(courses.map(course => course.department))];
+        return departments.filter(dept => dept !== 'N/A');
+    };
 
     // Filter courses based on tab and filters
     const getFilteredCourses = () => {
-        let filtered = mockCourses;
+        let filtered = courses;
 
         // Filter by tab
         switch (tabValue) {
@@ -228,7 +167,7 @@ const Courses = () => {
             filtered = filtered.filter(course =>
                 course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                course.englishName.toLowerCase().includes(searchQuery.toLowerCase())
+                course.description.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
 
@@ -242,23 +181,14 @@ const Courses = () => {
 
     // Statistics
     const stats = {
-        total: mockCourses.filter(c => c.status !== 'archived').length,
-        active: mockCourses.filter(c => c.status === 'active').length,
-        starred: mockCourses.filter(c => c.isStarred && c.status !== 'archived').length,
-        draft: mockCourses.filter(c => c.status === 'draft').length,
-        archived: mockCourses.filter(c => c.status === 'archived').length,
-        totalStudents: mockCourses.reduce((sum, c) => sum + c.totalStudents, 0),
-        totalClasses: mockCourses.reduce((sum, c) => sum + c.totalClasses, 0)
+        total: courses.filter(c => c.status !== 'archived').length,
+        active: courses.filter(c => c.status === 'active').length,
+        starred: courses.filter(c => c.isStarred && c.status !== 'archived').length,
+        draft: courses.filter(c => c.status === 'draft').length,
+        archived: courses.filter(c => c.status === 'archived').length,
+        totalStudents: courses.reduce((sum, c) => sum + c.totalStudents, 0),
+        totalClasses: courses.reduce((sum, c) => sum + c.totalClasses, 0)
     };
-
-    // Load courses
-    useEffect(() => {
-        setLoading(true);
-        setTimeout(() => {
-            setCourses(mockCourses);
-            setLoading(false);
-        }, 1000);
-    }, []);
 
     // Event handlers
     const handleTabChange = (event, newValue) => {
@@ -286,11 +216,13 @@ const Courses = () => {
     };
 
     const handleViewCourse = (course) => {
+        // Navigate to course detail page
         navigate(`/lecturer/courses/${course.id}`);
     };
 
     const handleViewClasses = (course) => {
-        navigate(`/lecturer/courses/${course.id}/classes`);
+        // Navigate to classes page with course filter
+        navigate(`/lecturer/classes/classesOfCourse/${course.id}`, { state: { courseFilter: course.id } });
     };
 
     const handleEditCourse = (course) => {
@@ -346,7 +278,9 @@ const Courses = () => {
     const getCategoryColor = (category) => {
         switch (category) {
             case 'Bắt buộc': return 'error';
-            case 'Tự chọn': return 'primary';
+            case 'Cơ sở ngành': return 'primary';
+            case 'Chuyên ngành': return 'secondary';
+            case 'Tự chọn': return 'info';
             default: return 'default';
         }
     };
@@ -356,8 +290,61 @@ const Courses = () => {
     if (loading) {
         return (
             <Box sx={{ p: 3 }}>
-                {/* <Typography variant="h4" sx={{ mb: 3 }}>Đang tải...</Typography> */}
-                <LinearProgress />
+                <Typography variant="h4" sx={{ fontWeight: 600, mb: 3 }}>
+                    Môn học giảng dạy
+                </Typography>
+                
+                {/* Loading Statistics */}
+                <Grid container spacing={3} sx={{ mb: 4 }}>
+                    {[1, 2, 3, 4].map((item) => (
+                        <Grid item xs={12} md={3} key={item}>
+                            <Card>
+                                <CardContent>
+                                    <Skeleton variant="text" width="60%" height={32} />
+                                    <Skeleton variant="text" width="40%" height={20} />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+
+                {/* Loading Filters */}
+                <Paper sx={{ mb: 3, p: 2 }}>
+                    <Skeleton variant="rectangular" width="100%" height={56} />
+                </Paper>
+
+                {/* Loading Course Cards */}
+                <Grid container spacing={3}>
+                    {[1, 2, 3, 4, 5, 6].map((item) => (
+                        <Grid item xs={12} md={6} lg={4} key={item}>
+                            <Card>
+                                <CardContent>
+                                    <Skeleton variant="text" width="60%" height={24} />
+                                    <Skeleton variant="text" width="100%" height={32} />
+                                    <Skeleton variant="text" width="80%" height={20} />
+                                    <Skeleton variant="rectangular" width="100%" height={100} sx={{ mt: 2 }} />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="error" sx={{ mb: 3 }}>
+                    {error}
+                </Alert>
+                <Button
+                    variant="contained"
+                    onClick={fetchCourses}
+                    startIcon={<AnalyticsIcon />}
+                >
+                    Thử lại
+                </Button>
             </Box>
         );
     }
@@ -365,18 +352,18 @@ const Courses = () => {
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
-            <Box sx={{ mb: 2 }}>
+            {/* <Box sx={{ mb: 2 }}>
                 <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
                     Môn học giảng dạy
                 </Typography>
-                {/* <Typography variant="body1" color="text.secondary">
-                    Quản lý các môn học mà bạn đang giảng dạy
-                </Typography> */}
-            </Box>
+                <Typography variant="body1" color="text.secondary">
+                    Quản lý {courses.length} môn học mà bạn đang giảng dạy
+                </Typography>
+            </Box> */}
 
             {/* Statistics Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} md={3} >
+            <Grid container spacing={3} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={3}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -417,24 +404,6 @@ const Courses = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box>
-                                    <Typography variant="h4" sx={{ fontWeight: 600, color: 'info.main' }}>
-                                        {stats.totalStudents}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        Tổng sinh viên
-                                    </Typography>
-                                </Box>
-                                <PeopleIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <Box>
                                     <Typography variant="h4" sx={{ fontWeight: 600, color: 'secondary.main' }}>
                                         {stats.totalClasses}
                                     </Typography>
@@ -447,6 +416,24 @@ const Courses = () => {
                         </CardContent>
                     </Card>
                 </Grid>
+
+                {/* <Grid item xs={12} md={3}>
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box>
+                                    <Typography variant="h4" sx={{ fontWeight: 600, color: 'warning.main' }}>
+                                        {stats.starred}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Yêu thích
+                                    </Typography>
+                                </Box>
+                                <StarIcon sx={{ fontSize: 40, color: 'warning.main', opacity: 0.7 }} />
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid> */}
             </Grid>
 
             {/* Filters */}
@@ -478,9 +465,11 @@ const Courses = () => {
                                     onChange={(e) => setFilterDepartment(e.target.value)}
                                 >
                                     <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="Khoa học máy tính">Khoa học máy tính</MenuItem>
-                                    <MenuItem value="Kỹ thuật phần mềm">Kỹ thuật phần mềm</MenuItem>
-                                    <MenuItem value="Hệ thống thông tin">Hệ thống thông tin</MenuItem>
+                                    {getDepartments().map((dept) => (
+                                        <MenuItem key={dept} value={dept}>
+                                            {dept}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                         </Grid>
@@ -493,14 +482,14 @@ const Courses = () => {
                                 >
                                     Bộ lọc
                                 </Button>
-                                {/* <Button
-                                    variant="contained"
-                                    startIcon={<AddIcon />}
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<AnalyticsIcon />}
                                     size="small"
-                                    onClick={() => setCreateDialogOpen(true)}
+                                    onClick={fetchCourses}
                                 >
-                                    Tạo môn học
-                                </Button> */}
+                                    Làm mới
+                                </Button>
                             </Box>
                         </Grid>
                     </Grid>
@@ -511,6 +500,8 @@ const Courses = () => {
                     value={tabValue} 
                     onChange={handleTabChange}
                     sx={{ borderBottom: 1, borderColor: 'divider' }}
+                    variant="scrollable"
+                    scrollButtons="auto"
                 >
                     <Tab 
                         label={
@@ -528,15 +519,15 @@ const Courses = () => {
                             </Box>
                         } 
                     />
-                    <Tab 
+                    {/* <Tab 
                         label={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <StarIcon />
                                 Yêu thích ({stats.starred})
                             </Box>
                         } 
-                    />
-                    <Tab 
+                    /> */}
+                    {/* <Tab 
                         label={
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <EditIcon />
@@ -551,7 +542,7 @@ const Courses = () => {
                                 Lưu trữ ({stats.archived})
                             </Box>
                         } 
-                    />
+                    /> */}
                 </Tabs>
             </Paper>
 
@@ -559,7 +550,7 @@ const Courses = () => {
             {filteredCourses.length > 0 ? (
                 <Grid container spacing={3}>
                     {filteredCourses.map((course) => (
-                        <Grid item xs={12} md={6} lg={4} key={course.id} sx={{width: "32%"}}>
+                        <Grid item xs={12} md={6} lg={4} key={course.id} sx={{ width: "32%" }}>
                             <Card
                                 sx={{
                                     height: '100%',
@@ -602,21 +593,23 @@ const Courses = () => {
                                             }}>
                                                 {course.name}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary" sx={{ 
-                                                fontStyle: 'italic',
-                                                mb: 1
-                                            }}>
-                                                {course.englishName}
-                                            </Typography>
+                                            {course.englishName && (
+                                                <Typography variant="body2" color="text.secondary" sx={{ 
+                                                    fontStyle: 'italic',
+                                                    mb: 1
+                                                }}>
+                                                    {course.englishName}
+                                                </Typography>
+                                            )}
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                            <IconButton
+                                            {/* <IconButton
                                                 size="small"
                                                 onClick={() => handleStarToggle(course.id)}
                                                 color={course.isStarred ? 'warning' : 'default'}
                                             >
                                                 {course.isStarred ? <StarIcon /> : <StarBorderIcon />}
-                                            </IconButton>
+                                            </IconButton> */}
                                             <IconButton
                                                 size="small"
                                                 onClick={(e) => handleMenuOpen(e, course)}
@@ -628,7 +621,7 @@ const Courses = () => {
 
                                     {/* Course Info */}
                                     <Box sx={{ mb: 2 }}>
-                                        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                        <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                                             <Chip
                                                 label={`${course.credits} tín chỉ`}
                                                 size="small"
@@ -693,11 +686,11 @@ const Courses = () => {
                                                     </Typography>
                                                 </Box>
                                             </Tooltip>
-                                            <Tooltip title="Sinh viên">
+                                            <Tooltip title="Lớp đang hoạt động">
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <PeopleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                                                     <Typography variant="caption">
-                                                        {course.totalStudents}
+                                                        {course.activeClasses}
                                                     </Typography>
                                                 </Box>
                                             </Tooltip>
@@ -709,11 +702,11 @@ const Courses = () => {
                                                     </Typography>
                                                 </Box>
                                             </Tooltip>
-                                            <Tooltip title="Bài tập">
+                                            <Tooltip title="Sĩ số tối đa">
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     <AssignmentIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
                                                     <Typography variant="caption">
-                                                        {course.totalAssignments}
+                                                        {course.maxStudents}
                                                     </Typography>
                                                 </Box>
                                             </Tooltip>
@@ -740,7 +733,7 @@ const Courses = () => {
                                     >
                                         Lớp học ({course.activeClasses})
                                     </Button>
-                                    <Button
+                                    {/* <Button
                                         variant="contained"
                                         size="small"
                                         startIcon={<EditIcon />}
@@ -748,7 +741,7 @@ const Courses = () => {
                                         sx={{ fontSize: '10px' }}
                                     >
                                         Chỉnh sửa
-                                    </Button>
+                                    </Button> */}
                                 </CardActions>
                             </Card>
                         </Grid>
@@ -763,15 +756,15 @@ const Courses = () => {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                         {searchQuery || filterDepartment !== 'all' 
                             ? 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc' 
-                            : 'Hãy tạo môn học đầu tiên của bạn'
+                            : 'Danh sách môn học sẽ hiển thị khi có dữ liệu từ hệ thống'
                         }
                     </Typography>
                     <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setCreateDialogOpen(true)}
+                        variant="outlined"
+                        startIcon={<AnalyticsIcon />}
+                        onClick={fetchCourses}
                     >
-                        Tạo môn học mới
+                        Làm mới
                     </Button>
                 </Box>
             )}
@@ -801,7 +794,7 @@ const Courses = () => {
                         </ListItemIcon>
                         <ListItemText>Quản lý lớp học</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => {
+                    {/* <MenuItem onClick={() => {
                         handleEditCourse(selectedCourse);
                         handleMenuClose();
                     }}>
@@ -809,7 +802,7 @@ const Courses = () => {
                             <EditIcon />
                         </ListItemIcon>
                         <ListItemText>Chỉnh sửa</ListItemText>
-                    </MenuItem>
+                    </MenuItem> */}
                     <MenuItem onClick={() => {
                         console.log('Manage documents:', selectedCourse);
                         handleMenuClose();
@@ -819,7 +812,7 @@ const Courses = () => {
                         </ListItemIcon>
                         <ListItemText>Quản lý tài liệu</ListItemText>
                     </MenuItem>
-                    <MenuItem onClick={() => {
+                    {/* <MenuItem onClick={() => {
                         console.log('Settings:', selectedCourse);
                         handleMenuClose();
                     }}>
@@ -827,9 +820,9 @@ const Courses = () => {
                             <SettingsIcon />
                         </ListItemIcon>
                         <ListItemText>Cài đặt</ListItemText>
-                    </MenuItem>
+                    </MenuItem> */}
                     <Divider />
-                    {selectedCourse?.status === 'archived' ? (
+                    {/* {selectedCourse?.status === 'archived' ? (
                         <MenuItem onClick={() => handleRestoreCourse(selectedCourse)}>
                             <ListItemIcon>
                                 <RestoreIcon />
@@ -846,7 +839,7 @@ const Courses = () => {
                             </ListItemIcon>
                             <ListItemText>Lưu trữ</ListItemText>
                         </MenuItem>
-                    )}
+                    )} */}
                 </MenuList>
             </Menu>
 
@@ -898,8 +891,9 @@ const Courses = () => {
                         <Grid item xs={12} md={4}>
                             <FormControl fullWidth>
                                 <InputLabel>Loại môn học</InputLabel>
-                                <Select defaultValue="Bắt buộc" label="Loại môn học">
-                                    <MenuItem value="Bắt buộc">Bắt buộc</MenuItem>
+                                <Select defaultValue="Cơ sở ngành" label="Loại môn học">
+                                    <MenuItem value="Cơ sở ngành">Cơ sở ngành</MenuItem>
+                                    <MenuItem value="Chuyên ngành">Chuyên ngành</MenuItem>
                                     <MenuItem value="Tự chọn">Tự chọn</MenuItem>
                                 </Select>
                             </FormControl>
@@ -934,7 +928,7 @@ const Courses = () => {
                         startIcon={<AddIcon />}
                         onClick={() => {
                             setCreateDialogOpen(false);
-                            alert('Tạo môn học thành công!');
+                            alert('Tính năng đang phát triển!');
                         }}
                     >
                         Tạo môn học
