@@ -799,7 +799,7 @@ const CourseManagement = () => {
                     {filteredCourses.length > 0 ? (
                       <Grid container spacing={3}>
                         {filteredCourses.map((course) => (
-                          <Grid item xs={12} md={6} lg={4} key={course.id}>
+                          <Grid item xs={12} md={6} lg={4} key={course.id} sx={{width: '350px'}}>
                             <CourseCard course={course} />
                           </Grid>
                         ))}
